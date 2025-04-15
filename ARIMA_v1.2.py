@@ -6,6 +6,7 @@ from scipy.linalg import svd
 
 # Example: Synthetic mortality data (replace with your actual dataset)
 # Rows represent ages, and columns represent years
+
 np.random.seed(42)
 ages = np.arange(50, 101)  # Ages 50 to 100
 years = np.arange(2000, 2021)  # Years 2000 to 2020
