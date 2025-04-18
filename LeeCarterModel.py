@@ -5,16 +5,17 @@ import seaborn as sns
 from statsmodels.tsa.arima.model import ARIMA
 from scipy.linalg import svd
 
-
 #Inputs
 qxRatesPath = r"C:\Users\frank\Downloads\PyUtilities\Stoch-Mort-With-ML\Docs\ITA\STATS\Mx_1x1.txt" #Mortality matrix from HMD
-initCalendarYear = 1910
+initCalendarYear = 1850
+maxAge = 110
+targetFields = {"Male", "Female"}
 
-########## Step 0: Preparing Data ##########
+########## 0. Preparing Data ##########
 
 qxRates = pd.read_csv(qxRatesPath, sep="\s+", header=1)
 
-#Cleaning up and defining formats, setting zero to NaN
+# 0.1 Cleaning up and defining formats, setting zero to NaN
 qxRates["Age"] = qxRates["Age"].replace("110+", 110).astype(int)
 qxRates[["Female", "Male", "Total"]] = (
     qxRates[["Female", "Male", "Total"]]
@@ -24,57 +25,73 @@ qxRates[["Female", "Male", "Total"]] = (
     .replace(0.0, np.nan)
 )   
 
-#Filtering relevant years
+# 0.2 Filtering relevant years and target fields (Male, Female and Total)
 qxRates = qxRates[qxRates["Year"]>=initCalendarYear] 
+qxRates = qxRates[qxRates["Age"]<= maxAge]
 
-#Preparing qx matrix for SVD process 
-qxRatesPivot = qxRates.pivot_table(values="Total", index="Age", columns="Year")
+########## 1. LC parameter estimation usign SVD ##########
+alphaAgg = []
+betaAgg = []
+kappaAgg = []
+agesAgg = []
+gendersAgg = []
+yearsAgg = []
+kappaGendersAgg = []
 
-#Cleaning up qx matrix. For NaN, this function repeats the last value. Axis=0 stands for rows *it may impact the final values.
-qxRatesPivot = qxRatesPivot.interpolate(axis=0, method="linear") 
+for field in targetFields:
+    # 1.1 Preparing qx matrix for SVD process 
+    qxMatrix = qxRates.pivot_table(values=field, index="Age", columns="Year")
 
-"""#Testing
-qxRatesPivot.to_clipboard()
-#"""
+    # 1.2 Cleaning up qx matrix. For NaN, this function repeats the last value. 
+    qxMatrix = qxMatrix.interpolate(axis=0, method="linear")    #Axis=0 stands for rows *it may impact the final values.
 
-########## Step 1: Log-transform mortality rates ##########
+    """#Testing
+    qxRatesPivot.to_clipboard()
+    #"""
 
-qxLog = np.log(qxRatesPivot)
+    # 1.3 Log-transform mortality rates
+    qxLog = np.log(qxMatrix)
+    qxLogCentered = qxLog - qxLog.mean(axis=1).values.reshape(-1,1)    #Axis=1 stands for average of all columns by row.
 
-qxLogCentered = qxLog - qxLog.mean(axis=1).values.reshape(-1,1) #Axis=1 stands for average of all columns by row.
+    # 1.4 Singular Value Decomposition (SVD) for Lee-Carter decomposition
+    U, S, Vt = svd(qxLogCentered, full_matrices=False)
 
-########## Step 2: Singular Value Decomposition (SVD) for Lee-Carter decomposition ##########
+    #Testing
+    print("U, S, Vt Shapes: ", U.shape, S.shape, Vt.shape)
+    qxLogCenteredReplica = U @ np.diag(S) @ Vt
+    testSVD = np.allclose(qxLogCentered, qxLogCenteredReplica)    #Check if arrays are equal
+    if testSVD: print("SVD Test Succesful for: " + field)
+    #"""
 
-U, S, Vt = svd(qxLogCentered, full_matrices=False)
+    # 1.5 Extract and aggregate Lee-Carter components
+    alpha_x = qxLog.mean(axis=1).values         #Average mortality across time
+    beta_x = U[:, 0]/sum(U[:, 0])               #Age effect, Beta is normalized to get the unique model solution, it does not impact forecasted results though.
+    kappa_t = sum(U[:, 0]) * S[0] * Vt[0, :]    #Time-varying component, adjusted by Beta normalization factor.
 
-"""#Testing
-print("U, S, Vt Shapes: ", U.shape, S.shape, Vt.shape)
-qxLogCenteredReplica = U @ np.diag(S) @ Vt
-testSVD = np.allclose(qxLogCentered, qxLogCenteredReplica) #Check if arrays are equal
-if testSVD: print("SVD Test Succesful")
-#"""
+    alphaAgg.extend(alpha_x)
+    betaAgg.extend(beta_x)
+    kappaAgg.extend(kappa_t)
 
-# Extract Lee-Carter components
-alpha_x = qxLog.mean(axis=1)  # Average mortality across time
-beta_x = U[:, 0]/sum(U[:, 0])  # Age effect, Beta is normalized to get the unique model solution, it does not impact forecasted results though.
-kappa_t = sum(U[:, 0]) * S[0] * Vt[0, :]  # Time-varying component, adjusted by Beta normalization factor.
+    gendersAgg.extend([field]*len(alpha_x))
+    agesAgg.extend(qxMatrix.index.values)
+    yearsAgg.extend(qxMatrix.columns.values)
+    kappaGendersAgg.extend([field]*len(kappa_t))
 
-"""#Testing
-print(type(alpha_x), alpha_x, alpha_x.shape)
-print(type(beta_x), beta_x, beta_x.shape)
-print(type(kappa_t), kappa_t, kappa_t.shape)
-#"""
+    """#Testing
+    print(type(alpha_x), alpha_x, alpha_x.shape)
+    print(type(beta_x), beta_x, beta_x.shape)
+    print(type(kappa_t), kappa_t, kappa_t.shape)
+    #"""
 
-yearsPlot = qxRatesPivot.columns.tolist()
-agesPlot = qxRatesPivot.index.to_list()
+########## 2. Preparing summary of LC model parameters ##########
+yearsPlot = qxMatrix.columns.tolist()
+agesPlot = qxMatrix.index.to_list()
 
-alphaDf = pd.DataFrame(alpha_x, index=agesPlot, columns=["Alpha"]).rename_axis(index="Age")
-betaDf  = pd.DataFrame(beta_x, index=agesPlot, columns=["Beta"]).rename_axis(index="Age")
-kappaDf = pd.DataFrame(kappa_t, index=yearsPlot, columns=["Kappa"]).rename_axis(index= "Year")
+alphaDf = pd.DataFrame({"Age":agesAgg, "Gender":gendersAgg, "Alpha":alphaAgg})
+betaDf = pd.DataFrame({"Age":agesAgg, "Gender":gendersAgg, "Beta":betaAgg})
+kappaDf = pd.DataFrame({"Year":yearsAgg, "Gender": kappaGendersAgg, "Kappa":kappaAgg})
 
-"""#Testing
-yearsPlotDf.to_clipboard()
-agesPlotDf.to_clipboard()
+#Testing
 alphaDf.to_clipboard()
 betaDf.to_clipboard()
 kappaDf.to_clipboard()
