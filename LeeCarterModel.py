@@ -5,7 +5,8 @@ import seaborn as sns
 from statsmodels.tsa.arima.model import ARIMA
 from scipy.linalg import svd
 
-#Inputs
+########## Inputs ##########
+
 qxRatesPath = r"C:\Users\frank\Downloads\PyUtilities\Stoch-Mort-With-ML\Docs\ITA\STATS\Mx_1x1.txt" #Mortality matrix from HMD
 initCalendarYear = 1850
 maxAge = 110
@@ -17,6 +18,7 @@ qxRates = pd.read_csv(qxRatesPath, sep="\s+", header=1)
 
 # 0.1 Cleaning up and defining formats, setting zero to NaN
 qxRates["Age"] = qxRates["Age"].replace("110+", 110).astype(int)
+
 qxRates[["Female", "Male", "Total"]] = (
     qxRates[["Female", "Male", "Total"]]
     .astype(str)
@@ -44,7 +46,7 @@ for field in targetFields:
 
     # 1.2 Cleaning up qx matrix. For NaN, this function repeats the last value. 
     qxMatrix = qxMatrix.interpolate(axis=0, method="linear")    #Axis=0 stands for rows *it may impact the final values.
-
+    
     """#Testing
     qxRatesPivot.to_clipboard()
     #"""
@@ -56,7 +58,7 @@ for field in targetFields:
     # 1.4 Singular Value Decomposition (SVD) for Lee-Carter decomposition
     U, S, Vt = svd(qxLogCentered, full_matrices=False)
 
-    #Testing
+    """#Testing
     print("U, S, Vt Shapes: ", U.shape, S.shape, Vt.shape)
     qxLogCenteredReplica = U @ np.diag(S) @ Vt
     testSVD = np.allclose(qxLogCentered, qxLogCenteredReplica)    #Check if arrays are equal
@@ -87,11 +89,11 @@ for field in targetFields:
 yearsPlot = qxMatrix.columns.tolist()
 agesPlot = qxMatrix.index.to_list()
 
-alphaDf = pd.DataFrame({"Age":agesAgg, "Gender":gendersAgg, "Alpha":alphaAgg})
-betaDf = pd.DataFrame({"Age":agesAgg, "Gender":gendersAgg, "Beta":betaAgg})
-kappaDf = pd.DataFrame({"Year":yearsAgg, "Gender": kappaGendersAgg, "Kappa":kappaAgg})
+aDf = pd.DataFrame({"Age":agesAgg, "Gender":gendersAgg, "Alpha":alphaAgg})
+bDf = pd.DataFrame({"Age":agesAgg, "Gender":gendersAgg, "Beta":betaAgg})
+kDf = pd.DataFrame({"Year":yearsAgg, "Gender": kappaGendersAgg, "Kappa":kappaAgg})
 
-#Testing
+"""#Testing
 alphaDf.to_clipboard()
 betaDf.to_clipboard()
 kappaDf.to_clipboard()
