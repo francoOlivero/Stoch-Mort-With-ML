@@ -81,8 +81,10 @@ for field in targetFields:
         pd.json_normalize([m["params"] for m in kARIMARecords])],
         axis=1
     )
-    
+
+    """#Testing   
     kARIMAsDf.to_clipboard()
+    #"""
     
     # 1.2 Setting up and fitting ARIMA parameters after selecting best model 
     kARIMA = pmdarima.ARIMA(
@@ -100,10 +102,14 @@ for field in targetFields:
         columns=kARIMAParam[0]
     ).set_index("")
 
+    """#Testing   
     kARIMAParamDf.to_clipboard()
-
+    #"""
+    
+    
     ########## 2. Forecast future kappa for n-years ##########
     
+    """#Testing
     nForecast = yearsToForecast
     kForecast, confIntKForecast = kARIMA.predict(n_periods=nForecast, return_conf_int=True, alpha= 0.05)
     yearsForecast = np.arange(yearsPlot[-1] + 1, yearsPlot[-1] + 1 + nForecast)
@@ -131,14 +137,18 @@ for field in targetFields:
 
     ########## 3. Reconstruct mortality rates for actual and forecast years ##########
 
-    fittedLCMortality = np.exp(
+    qxLCFitted = np.exp(
         aDf[aDf["Gender"]==field]["Alpha"].values.reshape(-1,1)
         + bDf[bDf["Gender"]==field]["Beta"].values.reshape(-1,1) 
         @ kARIMA.fittedvalues().values.reshape(1,-1)
     )
 
-    fittedLCMortalityDf = pd.DataFrame(fittedLCMortality)
+    qxLCFittedDf = pd.DataFrame(qxLCFitted, index=agesPlot, columns=yearsPlot).rename_axis(index="Age", columns="Year")
+    qxLCFittedDf["Gender"] = field
+    qxLCFittedDf = qxLCFittedDf.melt(id_vars="Gender", var_name="Year", value_name="qxLC", ignore_index=False)
+    qxLCFittedDf.to_clipboard()
 
+    print(qxLCFittedDf)
 
     """
     #Combine historical and forecasted mortality rates
