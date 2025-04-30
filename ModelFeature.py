@@ -1,6 +1,9 @@
 import pandas as pd
+import LeeCarterModel
+import LC_ARIMA
 
-path = r"C:\Users\frank\Downloads\PyUtilities\Stoch-Mort-With-ML\Docs\ITA\InputDB\ITAdeath.txt"
-df = pd.read_csv(path, delimiter= ",")
+mxBEDf = LeeCarterModel.mxBEDf
+mxLCDf = LC_ARIMA.mxLCFittedDf
 
-print(df)
+mxMLDf = mxBEDf.merge(mxLCDf, on= ["Age", "Year", "Gender"], how="inner").reset_index()
+mxMLDf["Cohort"] = mxMLDf["Year"] - mxMLDf["Age"]

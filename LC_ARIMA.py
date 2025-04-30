@@ -15,7 +15,7 @@ import LeeCarterModel
 ########## Inputs ##########
 yearsToForecast = 100
 targetFields = LeeCarterModel.targetFields
-qxMatrix = LeeCarterModel.qxMatrix
+mxMatrix = LeeCarterModel.mxMatrix
 aDf = LeeCarterModel.aDf
 bDf = LeeCarterModel.bDf
 kDf = LeeCarterModel.kDf
@@ -41,6 +41,8 @@ def get_diagnostics(resid):
     }
      
 ########## 0. Auto-fitting ARIMA models to kappa (time-varying component) ##########
+
+mxLCFitted = []
 
 for field in targetFields:
     y = kDf[kDf["Gender"]==field]["Kappa"]          #Kappa Input 
@@ -106,7 +108,6 @@ for field in targetFields:
     kARIMAParamDf.to_clipboard()
     #"""
     
-    
     ########## 2. Forecast future kappa for n-years ##########
     
     """#Testing
@@ -137,23 +138,22 @@ for field in targetFields:
 
     ########## 3. Reconstruct mortality rates for actual and forecast years ##########
 
-    qxLCFitted = np.exp(
+    mxLCFittedByGender = np.exp(
         aDf[aDf["Gender"]==field]["Alpha"].values.reshape(-1,1)
         + bDf[bDf["Gender"]==field]["Beta"].values.reshape(-1,1) 
         @ kARIMA.fittedvalues().values.reshape(1,-1)
     )
 
-    qxLCFittedDf = pd.DataFrame(qxLCFitted, index=agesPlot, columns=yearsPlot).rename_axis(index="Age", columns="Year")
-    qxLCFittedDf["Gender"] = field
-    qxLCFittedDf = qxLCFittedDf.melt(id_vars="Gender", var_name="Year", value_name="qxLC", ignore_index=False)
-    qxLCFittedDf.to_clipboard()
-
-    print(qxLCFittedDf)
-
+    mxLCFittedByGenderDf = pd.DataFrame(mxLCFittedByGender, index=agesPlot, columns=yearsPlot).rename_axis(index="Age", columns="Year")
+    mxLCFittedByGenderDf["Gender"] = field
+    mxLCFittedByGenderDf = mxLCFittedByGenderDf.melt(id_vars="Gender", var_name="Year", value_name="mxLC", ignore_index=False)
+  
+    mxLCFitted.append(mxLCFittedByGenderDf)
+    
     """
     #Combine historical and forecasted mortality rates
     all_years = np.concatenate([yearsPlot, yearsForecast])
-    all_mortality = np.hstack([qxMatrix.values, forecast_mortality])
+    all_mortality = np.hstack([mxMatrix.values, forecast_mortality])
 
     #Plot historical and forecasted mortality rates
     plt.figure(figsize=(12, 6))
@@ -164,3 +164,8 @@ for field in targetFields:
     plt.ylabel("Age")
     plt.show()
     """
+mxLCFittedDf = pd.concat(mxLCFitted)
+
+"""#Testing
+mxLCFittedDf.to_clipboard()
+#"""
