@@ -9,7 +9,7 @@ from scipy.linalg import svd
 
 mxRatesPath = r"C:\Users\frank\Downloads\PyUtilities\Stoch-Mort-With-ML\Docs\ITA\STATS\Mx_1x1.txt" #Mortality matrix from HMD
 initCalendarYear = 1850
-maxAge = 110
+maxAge = 100
 targetFields = ["Male", "Female"]
 targetIndexes = ["Year", "Age"]
 
@@ -33,7 +33,7 @@ mxRates = mxRates[mxRates["Year"]>=initCalendarYear]
 mxRates = mxRates[mxRates["Age"]<= maxAge]
 mxRates = mxRates[(targetIndexes + targetFields)]
 
-# 0.1 Setting Output for ML feature
+# 0.3 Setting Output for ML feature
 mxBEDf = mxRates.melt(id_vars=("Year", "Age"), var_name="Gender", value_name="mxBE").set_index("Age")
 
 ########## 1. LC parameter estimation usign SVD ##########
