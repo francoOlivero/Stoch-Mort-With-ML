@@ -7,7 +7,9 @@ from scipy.linalg import svd
 
 ########## Inputs ##########
 
-mxRatesPath = r"C:\Users\frank\Downloads\PyUtilities\Stoch-Mort-With-ML\Docs\ITA\STATS\Mx_1x1.txt" #Mortality matrix from HMD
+#mxRatesPath = r"C:\Users\frank\Downloads\PyUtilities\Stoch-Mort-With-ML\Docs\ITA\STATS\Mx_1x1.txt" #Mortality matrix from HMD
+mxRatesPath = r"C:\Users\franco.olivero\Downloads\pythonUtilities\Stoch-Mort-With-ML\Docs\ITA\STATS\Mx_1x1.txt"
+
 initCalendarYear = 1850
 maxAge = 100
 targetFields = ["Male", "Female"]
