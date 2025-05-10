@@ -3,9 +3,11 @@ from bs4 import BeautifulSoup
 import pandas as pd
 from io import StringIO
 
-# Define credentials
-email = "frank.oliver@live.com.ar"
-password = ".kN*3BgP-!gsZ56"
+import RunParameters as rp
+
+
+email = rp.email
+password = rp.password
 
 # Start session
 session = requests.Session()

@@ -5,43 +5,22 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 import pmdarima 
-from statsmodels.stats.diagnostic import acorr_ljungbox
-from statsmodels.tsa.stattools import adfuller
 
-from scipy.stats import jarque_bera,skew, kurtosis
-
-import LeeCarterModel
+import RunParameters as rp
+import UserDefinedFunctions as udf
+import LeeCarterModel as lc
 
 ########## Inputs ##########
-yearsToForecast = 100
-targetFields = LeeCarterModel.targetFields
-mxMatrix = LeeCarterModel.mxMatrix
-aDf = LeeCarterModel.aDf
-bDf = LeeCarterModel.bDf
-kDf = LeeCarterModel.kDf
-yearsPlot = LeeCarterModel.yearsPlot
-agesPlot = LeeCarterModel.agesPlot
+targetFields = rp.genders
+yearsToForecast = rp.yearsToForecast
 
-########## Custom Functions ##########
+aDf = lc.aDf
+bDf = lc.bDf
+kDf = lc.kDf
+yearsPlot = lc.yearsPlot
+agesPlot = lc.agesPlot
 
-def get_diagnostics(resid):
-
-    ljung = acorr_ljungbox(resid, lags=[1], return_df=True)
-    jb_stat, jb_pval = jarque_bera(resid)
-    
-    return {
-        "LJ_Box_Stat": ljung['lb_stat'].iloc[0],            #Ljung-Box Q-Stat
-        "LJung_Box_P-Value": ljung['lb_pvalue'].iloc[0],    #Ljung-Box P-Value
-        "JB_Stat": jb_stat,                                 #Jarque-Bera Stat
-        "JB_P-Value": jb_pval,                              #Jarque-Bera P-Value
-        "ADF_Resid_Stat": adfuller(resid)[0],                        #Augmented Dickey-Fuller Stat
-        "ADF_Resid_P-Value": adfuller(resid)[1],                      #Augmented Dickey-Fuller         
-        "Skew": skew(resid),                                #Skewness
-        "Kurtosis": kurtosis(resid),                        #Kurtosis
-    }
-     
 ########## 0. Auto-fitting ARIMA models to kappa (time-varying component) ##########
-
 mxLCFitted = []
 
 for field in targetFields:
@@ -52,7 +31,7 @@ for field in targetFields:
         start_p=0, start_q=0,                       #Starting AR(), MA() parameters
         max_p=3, max_q=3,                           #Max AR(), MA() parameters
         seasonal=False,                             #Set to true only for seasonal data
-        information_criterion="bic",                #Best model is (1,1,0) under both criteria, aic and bic
+        information_criterion="bic",                #AIC or BIC
         stepwise=False,                             #Complete search iterating through all param combinations
         suppress_warnings=True,                     #Only warnings related to indexing stuff, not relevant
         return_valid_fits=True,                     #Returns every model tried
@@ -61,53 +40,26 @@ for field in targetFields:
     )                  
 
     ########## 1. Summary of ARIMA models ##########
-    
-    # 1.1 Getting ARIMA scores to analyze best fit
-    kARIMARecords = []
+    kARIMAsDf = udf.ARIMAsGrid(kARIMAs)
+    kARIMAsDf.insert(0, "Gender", field)
 
-    for k in kARIMAs:                               
-        kARIMARecords.append({                                 #Appending validated models 
-            "ARIMA Order" : k.order,                           #Model order (p,d,q)
-            "AIC" : k.aic(),                                   #Akaike score
-            "BIC" : k.bic(),                                   #Bayesian score
-            "HQIC": k.hqic(),                                  #Hannan–Quinn score
-            "MSE" : k.arima_res_.mse,                          #Mean-Squared Error
-            "MAE" : k.arima_res_.mae,                          #Mean-Absolute Error 
-            "params" : k.params().to_dict(),                   #Model parameters
-            "diags" : get_diagnostics(k.arima_res_.resid)      #Getting model test results
-        })           
-    
-    kARIMAsDf = pd.concat(
-        [pd.DataFrame(kARIMARecords).drop(["params","diags"], axis=1),
-        pd.json_normalize([m["diags"] for m in kARIMARecords]),
-        pd.json_normalize([m["params"] for m in kARIMARecords])],
-        axis=1
-    )
-
-    """#Testing   
+    #Testing   
     kARIMAsDf.to_clipboard()
     #"""
     
-    # 1.2 Setting up and fitting ARIMA parameters after selecting best model 
-    kARIMA = pmdarima.ARIMA(
-        order=(1,1,0),
-        #trend="t" Not statistically significant
-    ).fit(y)
+    # 1.1 Setting up and fitting ARIMA parameters after selecting best model for both Male and Females
+    kARIMA = pmdarima.ARIMA(order=(1,1,0)).fit(y) #trend="t" Not statistically significant
     
-    #assert np.allclose(kARIMA.params(), kARIMA[0].params(), atol=1e-6)
+    # 1.2 Getting ARIMA parameters scores 
+    kARIMAParamByGender= kARIMA.summary().tables[1].data
+    kARIMAParamByGender[0][0] = "Parameter"
+    kARIMAParamDfByGender = pd.DataFrame(kARIMAParamByGender[1:], columns=kARIMAParamByGender[0] )
+    kARIMAParamDfByGender.insert(0, "Gender", field)
 
-    # 1.3 Getting ARIMA parameters scores 
-    kARIMAParam = kARIMA.summary().tables[1].data
-
-    kARIMAParamDf = pd.DataFrame(
-        kARIMAParam[1:],
-        columns=kARIMAParam[0]
-    ).set_index("")
-
-    """#Testing   
-    kARIMAParamDf.to_clipboard()
+    #Testing   
+    #kARIMAParamDfByGender.to_clipboard()
     #"""
-    
+
     ########## 2. Forecast future kappa for n-years ##########
     
     """#Testing
@@ -151,6 +103,7 @@ for field in targetFields:
     mxLCFitted.append(mxLCFittedByGenderDf)
     
     """
+    mxMatrix = lc.mxMatrix    
     #Combine historical and forecasted mortality rates
     all_years = np.concatenate([yearsPlot, yearsForecast])
     all_mortality = np.hstack([mxMatrix.values, forecast_mortality])
