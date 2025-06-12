@@ -33,7 +33,7 @@ mxRates = mxRates[mxRates["Age"]<= maxAge]
 mxRates = mxRates[(targetIndexes + targetFields)]
 
 # 1.2 Setting Output for ML feature
-mxBEDf = mxRates.melt(id_vars=("Year", "Age"), var_name="Gender", value_name="mxBE").set_index("Age")
+mxBEDf = mxRates.melt(id_vars=("Year", "Age"), var_name="Gender", value_name="mx_BE").set_index("Age")
 
 ########## 2. LC parameter estimations usign LC SVD ##########
 alphaAgg = []

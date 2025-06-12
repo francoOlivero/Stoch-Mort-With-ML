@@ -8,20 +8,20 @@ import pmdarima
 
 import RunParameters as rp
 import UserDefinedFunctions as udf
-import LeeCarterModel as lc
+import LC_01_BaseModel as lc1
 
 ########## Inputs ##########
 targetFields = rp.genders
 yearsToForecast = rp.yearsToForecast
 
-aDf = lc.aDf
-bDf = lc.bDf
-kDf = lc.kDf
-yearsPlot = lc.yearsPlot
-agesPlot = lc.agesPlot
+aDf = lc1.aDf
+bDf = lc1.bDf
+kDf = lc1.kDf
+yearsPlot = lc1.yearsPlot
+agesPlot = lc1.agesPlot
 
 ########## 0. Auto-fitting ARIMA models to kappa (time-varying component) ##########
-mxLCFitted = []
+mxLC = []
 
 for field in targetFields:
     y = kDf[kDf["Gender"]==field]["Kappa"]          #Kappa Input 
@@ -90,17 +90,17 @@ for field in targetFields:
 
     ########## 3. Reconstruct mortality rates for actual and forecast years ##########
 
-    mxLCFittedByGender = np.exp(
+    mxLCByGender = np.exp(
         aDf[aDf["Gender"]==field]["Alpha"].values.reshape(-1,1)
         + bDf[bDf["Gender"]==field]["Beta"].values.reshape(-1,1) 
         @ kARIMA.fittedvalues().values.reshape(1,-1)
     )
 
-    mxLCFittedByGenderDf = pd.DataFrame(mxLCFittedByGender, index=agesPlot, columns=yearsPlot).rename_axis(index="Age", columns="Year")
-    mxLCFittedByGenderDf["Gender"] = field
-    mxLCFittedByGenderDf = mxLCFittedByGenderDf.melt(id_vars="Gender", var_name="Year", value_name="mxLC", ignore_index=False)
+    mxLCByGenderDf = pd.DataFrame(mxLCByGender, index=agesPlot, columns=yearsPlot).rename_axis(index="Age", columns="Year")
+    mxLCByGenderDf["Gender"] = field
+    mxLCByGenderDf = mxLCByGenderDf.melt(id_vars="Gender", var_name="Year", value_name="mx_LC", ignore_index=False)
   
-    mxLCFitted.append(mxLCFittedByGenderDf)
+    mxLC.append(mxLCByGenderDf)
     
     """
     mxMatrix = lc.mxMatrix    
@@ -117,7 +117,7 @@ for field in targetFields:
     plt.ylabel("Age")
     plt.show()
     """
-mxLCFittedDf = pd.concat(mxLCFitted)
+mxLCDf = pd.concat(mxLC)
 
 """#Testing
 mxLCFittedDf.to_clipboard()

@@ -7,52 +7,47 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-import LeeCarterModel
-import LC_ARIMA
+import RunParameters as rp
+import UserDefinedFunctions as udf
+import LC_01_BaseModel as lc1
+import LC_02_kARIMA as lc2
 
-
-########## Inputs ##########
-
-mxBEDf = LeeCarterModel.mxBEDf
-mxLCDf = LC_ARIMA.mxLCFittedDf
+########## 0. Inputs ##########
+gDict = rp.gDict
+gDictInv = rp.gDictInv
+mxBEDf = lc1.mxBEDf
+mxLCDf = lc2.mxLCDf
 
 ########## Setting up ML feature ##########
+mx_X = mxBEDf.merge(mxLCDf, on= ["Age", "Year", "Gender"], how="inner").reset_index()
+mx_X["Cohort"] = mx_X["Year"] - mx_X["Age"]
+mx_X["mx_Y"] = mx_X["mx_LC"]/mx_X["mx_BE"]
+mx_X.drop(["mx_LC", "mx_BE"], axis=1, inplace=True)
+mx_X["Gender"] = mx_X["Gender"].map(gDict)
 
-mxMLDf = mxBEDf.merge(mxLCDf, on= ["Age", "Year", "Gender"], how="inner").reset_index()
-mxMLDf["Cohort"] = mxMLDf["Year"] - mxMLDf["Age"]
-mxMLDf["mxY"] = mxMLDf["mxLC"]/mxMLDf["mxBE"]
-mxMLDf.drop(["mxLC", "mxBE"], axis=1, inplace=True)
-mxMLDf['Gender'] = mxMLDf['Gender'].map({'Male': 0, 'Female': 1})
+########## Defining Training and Testing data ##########
+X_train = udf.FilterByYear(mx_X, 2015, compare="<=")[["Year", "Age", "Cohort", "Gender"]]
+y_train = udf.FilterByYear(mx_X, 2015, compare="<=")[["mx_Y"]]
 
-########## Setting up training and testing data ##########
-
-def FilterByYear(df, max_year, compare):
-    if compare == "<=": 
-        df = df[df['Year'] <= max_year]
-    else: 
-        df = df[df['Year'] > max_year]
-    return df
-
-X_train = FilterByYear(mxMLDf, 2015, compare="<=")[["Year", "Age", "Cohort", "Gender"]]
-y_train = FilterByYear(mxMLDf, 2015, compare="<=")[["mxY"]]
-
-X_test = FilterByYear(mxMLDf, 2015, compare=">")[["Year", "Age", "Cohort", "Gender"]]
-y_test = FilterByYear(mxMLDf, 2015, compare=">")[["mxY"]]
+X_test = udf.FilterByYear(mx_X, 2015, compare=">")[["Year", "Age", "Cohort", "Gender"]]
+y_test = udf.FilterByYear(mx_X, 2015, compare=">")[["mx_Y"]]
 
 ########## Decission Tree model ##########
-
 dtLC = DecisionTreeRegressor(max_depth=4,  
                            min_samples_leaf=0.1, 
                            random_state=3) 
 
 dtLC.fit(X_train, y_train)  
-y_pred = dtLC.predict(X_test)  
-y_pred2 = dtLC.predict(X_train)
+y_pred = dtLC.predict(X_test)
+y_pred_train = dtLC.predict(X_train)
 
-print(y_pred2)
+dtLCDf = X_train
+dtLCDf["mx_Y_DT"] = y_pred_train
+dtLCDf["mx_Y"] = y_train
+dtLCDf["Gender"] = dtLCDf["Gender"].map(gDictInv)
 
 
-
+"""#Testing 
 # Calculate metrics
 mae = mean_absolute_error(y_test, y_pred)
 rmse = np.sqrt(mean_squared_error(y_test, y_pred))
@@ -67,9 +62,9 @@ print(f"R-squared (R²): {r2:.4f}")
 y_test_flat = y_test.values.flatten()
 
 sns.scatterplot(x=y_test_flat, y=y_pred)
-plt.xlabel("Actual mxY")
-plt.ylabel("Predicted mxY")
-plt.title("Actual vs Predicted mxY")
+plt.xlabel("Actual mx_Y")
+plt.ylabel("Predicted mx_Y")
+plt.title("Actual vs Predicted mx_Y")
 plt.plot([min(y_test_flat), max(y_test_flat)], [min(y_test_flat), max(y_test_flat)], 'r--')  # identity line
 plt.grid(True)
 plt.show()
@@ -78,7 +73,7 @@ residuals = y_test_flat - y_pred
 
 sns.scatterplot(x=y_pred, y=residuals)
 plt.axhline(0, color='red', linestyle='--')
-plt.xlabel("Predicted mxY")
+plt.xlabel("Predicted mx_Y")
 plt.ylabel("Residuals")
 plt.title("Residual Plot")
 plt.grid(True)
@@ -95,7 +90,8 @@ X_test_with_pred['Actual'] = y_test_flat
 
 sns.lineplot(data=X_test_with_pred, x='Age', y='Predicted', label='Predicted')
 sns.lineplot(data=X_test_with_pred, x='Age', y='Actual', label='Actual')
-plt.title("mxY by Age (Predicted vs Actual)")
+plt.title("mx_Y by Age (Predicted vs Actual)")
 plt.grid(True)
 plt.legend()
 plt.show()
+#"""

@@ -2,6 +2,14 @@ import numpy as np
 import pandas as pd
 
 
+def FilterByYear(df, max_year, compare):
+    if compare == "<=": 
+        df = df[df['Year'] <= max_year]
+    else: 
+        df = df[df['Year'] > max_year]
+    return df
+
+
 from scipy.linalg import svd
 
 def LeeCarterSVD(mxMatrix: pd.DataFrame):
