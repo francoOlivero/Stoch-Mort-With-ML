@@ -16,10 +16,10 @@ import LC_02_kARIMA as lc2
 gDict = rp.gDict
 gDictInv = rp.gDictInv
 mxBEDf = lc1.mxBEDf
-mxLCDf = lc2.mxLCDf
+mxLC_Base_Df = lc2.mxLC_Base_Df
 
 ########## Setting up ML feature ##########
-mx_X = mxBEDf.merge(mxLCDf, on= ["Age", "Year", "Gender"], how="inner").reset_index()
+mx_X = mxBEDf.merge(mxLC_Base_Df, on= ["Age", "Year", "Gender"], how="inner").reset_index()
 mx_X["Cohort"] = mx_X["Year"] - mx_X["Age"]
 mx_X["mx_Y"] = mx_X["mx_LC"]/mx_X["mx_BE"]
 mx_X.drop(["mx_LC", "mx_BE"], axis=1, inplace=True)
@@ -33,18 +33,18 @@ X_test = udf.FilterByYear(mx_X, 2015, compare=">")[["Year", "Age", "Cohort", "Ge
 y_test = udf.FilterByYear(mx_X, 2015, compare=">")[["mx_Y"]]
 
 ########## Decission Tree model ##########
-dtLC = DecisionTreeRegressor(max_depth=4,  
+mY_DT = DecisionTreeRegressor(max_depth=4,  
                            min_samples_leaf=0.1, 
                            random_state=3) 
 
-dtLC.fit(X_train, y_train)  
-y_pred = dtLC.predict(X_test)
-y_pred_train = dtLC.predict(X_train)
+mY_DT.fit(X_train, y_train)  
+y_pred = mY_DT.predict(X_test)
+y_pred_train = mY_DT.predict(X_train)
 
-dtLCDf = X_train
-dtLCDf["mx_Y_DT"] = y_pred_train
-dtLCDf["mx_Y"] = y_train
-dtLCDf["Gender"] = dtLCDf["Gender"].map(gDictInv)
+mY_DT_Df = X_train
+mY_DT_Df["mx_Y_DT"] = y_pred_train
+mY_DT_Df["mx_Y"] = y_train
+mY_DT_Df["Gender"] = mY_DT_Df["Gender"].map(gDictInv)
 
 
 """#Testing 

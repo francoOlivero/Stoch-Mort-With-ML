@@ -19,6 +19,7 @@ aDf = lc1.aDf
 bDf = lc1.bDf
 yearsPlot = lc1.yearsPlot
 agesPlot = lc1.agesPlot
+kARIMA = lc2.kARIMA 
 
 ########## 2. Forecast future kappa for n-years ##########
     
@@ -50,20 +51,20 @@ plt.show()
 
 ########## 3. Reconstruct mortality rates for actual and forecast years ##########
 
-mxLC_DT = []
+mx_LC_DT = []
 
 for field in targetFields:
     mxLCByGender = np.exp(
         aDf[aDf["Gender"]==field]["Alpha"].values.reshape(-1,1)
         + bDf[bDf["Gender"]==field]["Beta"].values.reshape(-1,1) 
-        @ lc2.kARIMA.fittedvalues().values.reshape(1,-1)
+        @ kARIMA.fittedvalues().values.reshape(1,-1)
     )
 
     mxLCByGenderDf = pd.DataFrame(mxLCByGender, index=agesPlot, columns=yearsPlot).rename_axis(index="Age", columns="Year")
     mxLCByGenderDf["Gender"] = field
     mxLCByGenderDf = mxLCByGenderDf.melt(id_vars="Gender", var_name="Year", value_name="mx_LC", ignore_index=False)
   
-    mxLC.append(mxLCByGenderDf)
+    mx_LC_DT.append(mxLCByGenderDf)
     
     """
     mxMatrix = lc.mxMatrix    
@@ -80,7 +81,7 @@ for field in targetFields:
     plt.ylabel("Age")
     plt.show()
     """
-mxLCDf = pd.concat(mxLC)
+mx_LC_DT_Df = pd.concat(mx_LC_DT)
 
 """#Testing
 mxLCFittedDf.to_clipboard()

@@ -117,7 +117,7 @@ for field in targetFields:
     plt.ylabel("Age")
     plt.show()
     """
-mxLCDf = pd.concat(mxLC)
+mxLC_Base_Df = pd.concat(mxLC)
 
 """#Testing
 mxLCFittedDf.to_clipboard()
