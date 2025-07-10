@@ -10,7 +10,7 @@ import RunParameters as rp
 import UserDefinedFunctions as udf
 import LC_01_BaseModel as lc1
 
-########## Inputs ##########
+########## 0. Inputs ##########
 targetFields = rp.genders
 yearsToForecast = rp.yearsToForecast
 
@@ -20,7 +20,7 @@ kDf = lc1.kDf
 yearsPlot = lc1.yearsPlot
 agesPlot = lc1.agesPlot
 
-########## 0. Auto-fitting ARIMA models to kappa (time-varying component) ##########
+########## 1. Auto-fitting ARIMA models to kappa (time-varying component) ##########
 mxLC = []
 
 for field in targetFields:
@@ -39,7 +39,7 @@ for field in targetFields:
         #trend="t"                                  #Linear Time Trend Not statistically significant
     )                  
 
-    ########## 1. Summary of ARIMA models ##########
+    ########## 2. Summary of ARIMA models ##########
     kARIMAsDf = udf.ARIMAsGrid(kARIMAs)
     kARIMAsDf.insert(0, "Gender", field)
 
@@ -47,10 +47,10 @@ for field in targetFields:
     kARIMAsDf.to_clipboard()
     #"""
     
-    # 1.1 Setting up and fitting ARIMA parameters after selecting best model for both Male and Females
+    # 2.1 Setting up and fitting ARIMA parameters after selecting best model for both Male and Females
     kARIMA = pmdarima.ARIMA(order=(1,1,0)).fit(y) #trend="t" Not statistically significant
     
-    # 1.2 Getting ARIMA parameters scores 
+    # 2.2 Getting ARIMA parameters scores 
     kARIMAParamByGender= kARIMA.summary().tables[1].data
     kARIMAParamByGender[0][0] = "Parameter"
     kARIMAParamDfByGender = pd.DataFrame(kARIMAParamByGender[1:], columns=kARIMAParamByGender[0] )
@@ -60,7 +60,7 @@ for field in targetFields:
     #kARIMAParamDfByGender.to_clipboard()
     #"""
 
-    ########## 2. Forecast future kappa for n-years ##########
+    ########## 3. Forecast future kappa for n-years ##########
     
     """#Testing
     nForecast = yearsToForecast
@@ -88,7 +88,7 @@ for field in targetFields:
     plt.show()
     #"""
 
-    ########## 3. Reconstruct mortality rates for actual and forecast years ##########
+    ########## 4. Reconstruct mortality rates for actual and forecast years ##########
 
     mxLCByGender = np.exp(
         aDf[aDf["Gender"]==field]["Alpha"].values.reshape(-1,1)
