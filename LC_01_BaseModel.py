@@ -13,6 +13,7 @@ import UserDefinedFunctions as udf
 country = rp.country
 email = rp.email
 password = rp.password
+mxRatesPath = rp.mxRates
 
 initCalendarYear = rp.initCalendarYear
 maxAge = rp.maxAge
@@ -20,8 +21,8 @@ targetFields = rp.genders
 targetIndexes = rp.headers
 
 ########## 1. Preparing Data ##########
-#mxRates = pd.read_csv(mxRatesPath, sep="\s+", header=1)
-mxRates = udf.getMxFromHMD(email, password, country) 
+mxRates = pd.read_csv(mxRatesPath, sep="\s+", header=1)
+#mxRates = udf.getMxFromHMD(email, password, country) 
 
 # 1.1 Cleaning up and defining formats, setting zero to NaN and filtering
 mxRates["Age"] = mxRates["Age"].replace("110+", 110).astype(int)
@@ -40,6 +41,7 @@ mxRates = mxRates[(targetIndexes + targetFields)]
 
 # 1.2 Setting Output for ML feature
 mxBEDf = mxRates.melt(id_vars=("Year", "Age"), var_name="Gender", value_name="mx_BE").set_index("Age")
+mxBEDf.to_clipboard()
 
 ########## 2. LC parameter estimations usign LC SVD ##########
 alphaAgg = []
@@ -75,6 +77,11 @@ agesPlot = mxMatrix.index.to_list()
 aDf = pd.DataFrame({"Age":agesAgg, "Gender":gendersAgg, "Alpha":alphaAgg})
 bDf = pd.DataFrame({"Age":agesAgg, "Gender":gendersAgg, "Beta":betaAgg})
 kDf = pd.DataFrame({"Year":yearsAgg, "Gender": kappaGendersAgg, "Kappa":kappaAgg})
+
+aDf.to_clipboard()
+bDf.to_clipboard()
+kDf.to_clipboard()
+
 
 """#Plot LC parameters
 sns.relplot(x="Age", y="Alpha", data=aDf, hue= "Gender")

@@ -19,10 +19,6 @@ gDictInv = rp.gDictInv
 mxBEDf = lc1.mxBEDf
 mxLC_Base_Df = lc2.mxLC_Base_Df
 
-mxBEDf.to_clipboard()
-mxLC_Base_Df.to_clipboard()
-
-
 ########## 1. Setting up ML feature ##########
 mx_X = mxBEDf.merge(mxLC_Base_Df, on= ["Age", "Year", "Gender"], how="inner").reset_index()
 mx_X["Cohort"] = mx_X["Year"] - mx_X["Age"]

@@ -93,7 +93,8 @@ for field in targetFields:
     mxLCByGender = np.exp(
         aDf[aDf["Gender"]==field]["Alpha"].values.reshape(-1,1)
         + bDf[bDf["Gender"]==field]["Beta"].values.reshape(-1,1) 
-        @ kARIMA.fittedvalues().values.reshape(1,-1)
+        @ kDf[kDf["Gender"]==field]["Kappa"].values.reshape(1,-1)
+        #@ kARIMA.fittedvalues().values.reshape(1,-1)
     )
 
     mxLCByGenderDf = pd.DataFrame(mxLCByGender, index=agesPlot, columns=yearsPlot).rename_axis(index="Age", columns="Year")
@@ -118,6 +119,8 @@ for field in targetFields:
     plt.show()
     """
 mxLC_Base_Df = pd.concat(mxLC)
+
+mxLC_Base_Df.to_clipboard()
 
 """#Testing
 mxLCFittedDf.to_clipboard()
