@@ -1,6 +1,15 @@
 import numpy as np
 import pandas as pd
 
+from scipy.linalg import svd
+
+from statsmodels.stats.diagnostic import acorr_ljungbox
+from statsmodels.tsa.stattools import adfuller
+from scipy.stats import jarque_bera,skew, kurtosis
+
+import requests
+from bs4 import BeautifulSoup
+from io import StringIO
 
 def FilterByYear(df, max_year, compare):
     if compare == "<=": 
@@ -8,9 +17,6 @@ def FilterByYear(df, max_year, compare):
     else: 
         df = df[df['Year'] > max_year]
     return df
-
-
-from scipy.linalg import svd
 
 def LeeCarterSVD(mxMatrix: pd.DataFrame):
     """
@@ -42,11 +48,6 @@ def LeeCarterSVD(mxMatrix: pd.DataFrame):
     assert np.allclose(mxLogCentered, U @ np.diag(S) @ Vt) 
     
     return ax, bx, kt
-
-
-from statsmodels.stats.diagnostic import acorr_ljungbox
-from statsmodels.tsa.stattools import adfuller
-from scipy.stats import jarque_bera,skew, kurtosis
 
 def ARIMAsTests(resid):
 
@@ -94,4 +95,50 @@ def ARIMAsGrid(kARIMAs):
         pd.json_normalize([record["params"] for record in kARIMARecords])
     ], axis=1)
   
+    return df
+
+def getMxFromHMD(email, password, country):
+    
+    # Start session
+    session = requests.Session()
+
+    # Step 1: Get verification token
+    loginURL = 'https://www.mortality.org/Account/Login'
+    loginPage = session.get(loginURL)
+    soup = BeautifulSoup(loginPage.content, 'html.parser')
+    token = soup.find('input', {'name': '__RequestVerificationToken'})['value']
+
+    # Step 2: Send login request
+    payload = {
+        'Email': email,
+        'Password': password,
+        '__RequestVerificationToken': token
+    }
+    headers = {
+        'User-Agent': 'Mozilla/5.0',
+        'Referer': loginURL
+    }
+    response = session.post(loginURL, data=payload, headers=headers)
+
+    # Step 3: Check login success
+    if "Logout" not in response.text and "/Account/Logout" not in response.text:
+        print("Login failed.")
+        exit()
+
+    print("Login successful.")
+
+    # Step 4: Access dataset
+    dataURL = f'https://www.mortality.org/File/GetDocument/hmd.v6/{country}/STATS/Mx_1x1.txt'
+    dataResponse = session.get(dataURL)
+
+    if dataResponse.status_code == 200:
+        print("Dataset downloaded successfully.")
+    else:
+        print(f"Failed to download dataset. Status code: {dataResponse.status_code}")
+        exit()
+
+    # Step 5: Convert content to DataFrame
+    rawData = dataResponse.text
+    df = pd.read_csv(StringIO(rawData),  delim_whitespace=True, skiprows=1)
+    
     return df

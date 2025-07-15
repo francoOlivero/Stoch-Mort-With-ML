@@ -8,14 +8,20 @@ import RunParameters as rp
 import UserDefinedFunctions as udf
 
 ########## 0. Inputs ##########
-mxRatesPath = rp.mxRates #Mortality matrix from HMD
+#mxRatesPath = rp.mxRates #Mortality matrix from HMD
+
+country = rp.country
+email = rp.email
+password = rp.password
+
 initCalendarYear = rp.initCalendarYear
 maxAge = rp.maxAge
 targetFields = rp.genders
 targetIndexes = rp.headers
 
 ########## 1. Preparing Data ##########
-mxRates = pd.read_csv(mxRatesPath, sep="\s+", header=1)
+#mxRates = pd.read_csv(mxRatesPath, sep="\s+", header=1)
+mxRates = udf.getMxFromHMD(email, password, country) 
 
 # 1.1 Cleaning up and defining formats, setting zero to NaN and filtering
 mxRates["Age"] = mxRates["Age"].replace("110+", 110).astype(int)

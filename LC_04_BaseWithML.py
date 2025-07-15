@@ -85,6 +85,10 @@ plt.legend()
 plt.show()
 #"""
 
+########## 3. Adjusting Kappa ##########
+
+# 2.1 Setting up and fitting ARIMA parameters after selecting best model for both Male and Females
+#kARIMA = pmdarima.ARIMA(order=(1,1,0)).fit(y) #trend="t" Not statistically significant
 ########## 3. Reconstruct mortality rates for actual and forecast years ##########
 
 mx_LC_DT = []
@@ -92,8 +96,12 @@ mx_LC_DT = []
 for field in targetFields:
     mxLCByGender = np.exp(
         a_DT_Df[a_DT_Df["Gender"]==field]["Alpha_DT"].values.reshape(-1,1)
+        + aDf[aDf["Gender"]==field]["Alpha"].values.reshape(-1,1)
+        + bDf[bDf["Gender"]==field]["Beta"].values.reshape(-1,1) 
+        @ kARIMA.fittedvalues().values.reshape(1,-1)        
         + b_DT_Df[b_DT_Df["Gender"]==field]["Beta_DT"].values.reshape(-1,1) 
         @ kARIMA.fittedvalues().values.reshape(1,-1)
+        
     )
 
     mxLCByGenderDf = pd.DataFrame(mxLCByGender, index=agesPlot, columns=yearsPlot).rename_axis(index="Age", columns="Year")

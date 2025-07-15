@@ -15,8 +15,13 @@ import LC_02_kARIMA as lc2
 ########## 0. Inputs ##########
 gDict = rp.gDict
 gDictInv = rp.gDictInv
+
 mxBEDf = lc1.mxBEDf
 mxLC_Base_Df = lc2.mxLC_Base_Df
+
+mxBEDf.to_clipboard()
+mxLC_Base_Df.to_clipboard()
+
 
 ########## 1. Setting up ML feature ##########
 mx_X = mxBEDf.merge(mxLC_Base_Df, on= ["Age", "Year", "Gender"], how="inner").reset_index()
@@ -46,6 +51,7 @@ mY_DT_Df["mx_Y_DT"] = y_pred_train
 mY_DT_Df["mx_Y"] = y_train
 mY_DT_Df["Gender"] = mY_DT_Df["Gender"].map(gDictInv)
 
+mY_DT_Df.to_clipboard()
 
 """#Testing 
 # Calculate metrics
