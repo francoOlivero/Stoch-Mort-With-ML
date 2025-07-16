@@ -14,15 +14,11 @@ import LC_01_BaseModel as lc1
 targetFields = rp.genders
 yearsToForecast = rp.yearsToForecast
 
-aDf = lc1.aDf
-bDf = lc1.bDf
 kDf = lc1.kDf
 yearsPlot = lc1.yearsPlot
 agesPlot = lc1.agesPlot
 
 ########## 1. Auto-fitting ARIMA models to kappa (time-varying component) ##########
-mxLC = []
-
 for field in targetFields:
     y = kDf[kDf["Gender"]==field]["Kappa"]          #Kappa Input 
 
@@ -88,21 +84,7 @@ for field in targetFields:
     plt.show()
     #"""
 
-    ########## 4. Reconstruct mortality rates for actual and forecast years ##########
 
-    mxLCByGender = np.exp(
-        aDf[aDf["Gender"]==field]["Alpha"].values.reshape(-1,1)
-        + bDf[bDf["Gender"]==field]["Beta"].values.reshape(-1,1) 
-        @ kDf[kDf["Gender"]==field]["Kappa"].values.reshape(1,-1)
-        #@ kARIMA.fittedvalues().values.reshape(1,-1)
-    )
-
-    mxLCByGenderDf = pd.DataFrame(mxLCByGender, index=agesPlot, columns=yearsPlot).rename_axis(index="Age", columns="Year")
-    mxLCByGenderDf["Gender"] = field
-    mxLCByGenderDf = mxLCByGenderDf.melt(id_vars="Gender", var_name="Year", value_name="mx_LC", ignore_index=False)
-  
-    mxLC.append(mxLCByGenderDf)
-    
     """
     mxMatrix = lc.mxMatrix    
     #Combine historical and forecasted mortality rates
@@ -118,10 +100,3 @@ for field in targetFields:
     plt.ylabel("Age")
     plt.show()
     """
-mxLC_Base_Df = pd.concat(mxLC)
-
-mxLC_Base_Df.to_clipboard()
-
-"""#Testing
-mxLCFittedDf.to_clipboard()
-#"""

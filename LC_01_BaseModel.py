@@ -21,8 +21,8 @@ targetFields = rp.genders
 targetIndexes = rp.headers
 
 ########## 1. Preparing Data ##########
-mxRates = pd.read_csv(mxRatesPath, sep="\s+", header=1)
-#mxRates = udf.getMxFromHMD(email, password, country) 
+#mxRates = pd.read_csv(mxRatesPath, sep="\s+", header=1)
+mxRates = udf.getMxFromHMD(email, password, country) 
 
 # 1.1 Cleaning up and defining formats, setting zero to NaN and filtering
 mxRates["Age"] = mxRates["Age"].replace("110+", 110).astype(int)
@@ -66,8 +66,8 @@ for field in targetFields:
     kappaAgg.extend(kappa_t)
 
     gendersAgg.extend([field]*len(alpha_x))
-    agesAgg.extend(mxMatrix.index.values)
-    yearsAgg.extend(mxMatrix.columns.values)
+    agesAgg.extend(mxMatrix.index.to_numpy())
+    yearsAgg.extend(mxMatrix.columns.to_numpy())
     kappaGendersAgg.extend([field]*len(kappa_t))
 
 ########## 3. Preparing summary of LC model parameters and Df indexes-columns ##########
@@ -78,10 +78,26 @@ aDf = pd.DataFrame({"Age":agesAgg, "Gender":gendersAgg, "Alpha":alphaAgg})
 bDf = pd.DataFrame({"Age":agesAgg, "Gender":gendersAgg, "Beta":betaAgg})
 kDf = pd.DataFrame({"Year":yearsAgg, "Gender": kappaGendersAgg, "Kappa":kappaAgg})
 
+########## 4. Reconstruct mortality rates for actual and forecast years ##########
+mxLC = []
+for field in targetFields:
+    mxLCByGender = np.exp(
+        aDf[aDf["Gender"]==field]["Alpha"].to_numpy().reshape(-1,1)
+        + bDf[bDf["Gender"]==field]["Beta"].to_numpy().reshape(-1,1) 
+        @ kDf[kDf["Gender"]==field]["Kappa"].to_numpy().reshape(1,-1)
+        )
+
+    mxLCByGenderDf = pd.DataFrame(mxLCByGender, index=agesPlot, columns=yearsPlot).rename_axis(index="Age", columns="Year")
+    mxLCByGenderDf["Gender"] = field
+    mxLCByGenderDf = mxLCByGenderDf.melt(id_vars="Gender", var_name="Year", value_name="mx_LC", ignore_index=False)
+    
+    mxLC.append(mxLCByGenderDf)
+mxLC_Base_Df = pd.concat(mxLC)
+
 aDf.to_clipboard()
 bDf.to_clipboard()
 kDf.to_clipboard()
-
+mxLC_Base_Df.to_clipboard()
 
 """#Plot LC parameters
 sns.relplot(x="Age", y="Alpha", data=aDf, hue= "Gender")

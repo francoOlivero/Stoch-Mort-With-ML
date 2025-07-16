@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
 
-from sklearn.tree import DecisionTreeRegressor 
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 import seaborn as sns
@@ -10,44 +11,46 @@ import matplotlib.pyplot as plt
 import RunParameters as rp
 import UserDefinedFunctions as udf
 import LC_01_BaseModel as lc1
-import LC_02_kARIMA as lc2
 
 ########## 0. Inputs ##########
 gDict = rp.gDict
 gDictInv = rp.gDictInv
 
 mxBEDf = lc1.mxBEDf
-mxLC_Base_Df = lc2.mxLC_Base_Df
+mxLC_Base_Df = lc1.mxLC_Base_Df
 
 ########## 1. Setting up ML feature ##########
 mx_X = mxBEDf.merge(mxLC_Base_Df, on= ["Age", "Year", "Gender"], how="inner").reset_index()
-mx_X["Cohort"] = mx_X["Year"] - mx_X["Age"]
-mx_X["mx_Y"] = mx_X["mx_LC"]/mx_X["mx_BE"]
-mx_X.drop(["mx_LC", "mx_BE"], axis=1, inplace=True)
 mx_X["Gender"] = mx_X["Gender"].map(gDict)
+mx_X.insert(loc=3, column='Cohort', value= mx_X["Year"] - mx_X["Age"])
+mx_X["mx_Y"] = mx_X["mx_LC"]/mx_X["mx_BE"]
+#mx_X.drop(["mx_LC", "mx_BE"], axis=1, inplace=True)
 
 ########## 2.Defining Training and Testing data ##########
-X_train = udf.FilterByYear(mx_X, 2015, compare="<=")[["Year", "Age", "Cohort", "Gender"]]
-y_train = udf.FilterByYear(mx_X, 2015, compare="<=")[["mx_Y"]]
+trainDataYr = 2015
+X_train = udf.FilterByYr(mx_X, trainDataYr, compare="<=")[["Year", "Age", "Cohort", "Gender"]] #DF
+y_train = udf.FilterByYr(mx_X, trainDataYr, compare="<=")["mx_Y"] #Series
 
-X_test = udf.FilterByYear(mx_X, 2015, compare=">")[["Year", "Age", "Cohort", "Gender"]]
-y_test = udf.FilterByYear(mx_X, 2015, compare=">")[["mx_Y"]]
+X_test = udf.FilterByYr(mx_X, trainDataYr, compare=">")[["Year", "Age", "Cohort", "Gender"]] #DF
+y_test = udf.FilterByYr(mx_X, trainDataYr, compare=">")["mx_Y"] #Series
 
-########## 3.Decission Tree model ##########
-mY_DT = DecisionTreeRegressor(max_depth=4,  
-                           min_samples_leaf=0.1, 
-                           random_state=3) 
+########## 3.ML models ##########
+mY_DT = DecisionTreeRegressor(max_depth=4, min_samples_leaf=0.1, random_state=3) 
+mY_RF = RandomForestRegressor(n_estimators=400, min_samples_leaf=0.12, random_state=3)
+mY_GB = GradientBoostingRegressor(n_estimators=400, max_depth=1, random_state=3)
 
-mY_DT.fit(X_train, y_train)  
-y_pred = mY_DT.predict(X_test)
-y_pred_train = mY_DT.predict(X_train)
+mY_DT.fit(X_train, y_train)
+mY_RF.fit(X_train, y_train)  
+mY_GB.fit(X_train, y_train)    
 
-mY_DT_Df = X_train
-mY_DT_Df["mx_Y_DT"] = y_pred_train
-mY_DT_Df["mx_Y"] = y_train
-mY_DT_Df["Gender"] = mY_DT_Df["Gender"].map(gDictInv)
+mY_ML_Df = udf.FilterByYr(mx_X, trainDataYr, compare="<=").copy()
+mY_ML_Df["Gender"] = mY_ML_Df["Gender"].map(gDictInv)
 
-mY_DT_Df.to_clipboard()
+mY_ML_Df["mx_Y_DT"] = mY_DT.predict(X_train)
+mY_ML_Df["mx_Y_RF"] = mY_RF.predict(X_train)
+mY_ML_Df["mx_Y_GB"] = mY_GB.predict(X_train)
+
+mY_ML_Df.to_clipboard()
 
 """#Testing 
 # Calculate metrics

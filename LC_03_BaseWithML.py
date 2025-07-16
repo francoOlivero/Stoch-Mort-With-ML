@@ -8,8 +8,7 @@ import RunParameters as rp
 import UserDefinedFunctions as udf
 
 import LC_01_BaseModel as lc1
-import LC_02_kARIMA as lc2
-import LC_03_ML as lc3
+import LC_02_ML as lc2
 
 ########## 0. Inputs ##########
 targetFields = rp.genders
@@ -17,10 +16,11 @@ yearsToForecast = rp.yearsToForecast
 
 aDf = lc1.aDf
 bDf = lc1.bDf
+kDf = lc1.kDf
+
 yearsPlot = lc1.yearsPlot
 agesPlot = lc1.agesPlot
-mY_DT_Df = lc3.mY_DT_Df
-kARIMA = lc2.kARIMA
+mY_ML_Df = lc2.mY_ML_Df
 
 ########## 1. Apply Lee Carter model to mortality adjustments from ML model ##########
 alphaAgg = []
@@ -33,7 +33,7 @@ kappaGendersAgg = []
 
 for field in targetFields:
     # 1.1 Preparing mx matrix for SVD process. 
-    mxMatrix = mY_DT_Df[mY_DT_Df["Gender"]==field].pivot_table(values="mx_Y_DT", index="Age", columns="Year")
+    mxMatrix = mY_ML_Df[mY_ML_Df["Gender"]==field].pivot_table(values="mx_Y_DT", index="Age", columns="Year")
     mxMatrix.to_clipboard()
     # 1.2 LC params
     alpha_x, beta_x, kappa_t = udf.LeeCarterSVD(mxMatrix)
@@ -44,8 +44,8 @@ for field in targetFields:
     kappaAgg.extend(kappa_t)
 
     gendersAgg.extend([field]*len(alpha_x))
-    agesAgg.extend(mxMatrix.index.values)
-    yearsAgg.extend(mxMatrix.columns.values)
+    agesAgg.extend(mxMatrix.index.to_numpy())
+    yearsAgg.extend(mxMatrix.columns.to_numpy())
     kappaGendersAgg.extend([field]*len(kappa_t))
 
 ########## 3. Preparing summary of LC model parameters and Df indexes-columns ##########
@@ -95,13 +95,12 @@ mx_LC_DT = []
 
 for field in targetFields:
     mxLCByGender = np.exp(
-        a_DT_Df[a_DT_Df["Gender"]==field]["Alpha_DT"].values.reshape(-1,1)
-        + aDf[aDf["Gender"]==field]["Alpha"].values.reshape(-1,1)
+        aDf[aDf["Gender"]==field]["Alpha"].values.reshape(-1,1)
         + bDf[bDf["Gender"]==field]["Beta"].values.reshape(-1,1) 
-        @ kARIMA.fittedvalues().values.reshape(1,-1)        
+        @ kDf[kDf["Gender"]==field]["Kappa"].values.reshape(1,-1)
+        + a_DT_Df[a_DT_Df["Gender"]==field]["Alpha_DT"].values.reshape(-1,1)
         + b_DT_Df[b_DT_Df["Gender"]==field]["Beta_DT"].values.reshape(-1,1) 
-        @ kARIMA.fittedvalues().values.reshape(1,-1)
-        
+        @ k_DT_Df[k_DT_Df["Gender"]==field]["Kappa_DT"].values.reshape(1,-1)
     )
 
     mxLCByGenderDf = pd.DataFrame(mxLCByGender, index=agesPlot, columns=yearsPlot).rename_axis(index="Age", columns="Year")

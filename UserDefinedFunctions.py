@@ -11,7 +11,7 @@ import requests
 from bs4 import BeautifulSoup
 from io import StringIO
 
-def FilterByYear(df, max_year, compare):
+def FilterByYr(df, max_year, compare):
     if compare == "<=": 
         df = df[df['Year'] <= max_year]
     else: 
@@ -137,8 +137,8 @@ def getMxFromHMD(email, password, country):
         print(f"Failed to download dataset. Status code: {dataResponse.status_code}")
         exit()
 
-    # Step 5: Convert content to DataFrame
+    # Step 5: Convert content to DataFrame, sep='\s+' to separate columns by spaces
     rawData = dataResponse.text
-    df = pd.read_csv(StringIO(rawData),  delim_whitespace=True, skiprows=1)
+    df = pd.read_csv(StringIO(rawData),  sep='\s+', skiprows=1) 
     
     return df
