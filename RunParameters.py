@@ -15,5 +15,9 @@ gDictInv = {0:"Male", 1:"Female"}
 headers = ["Year", "Age"]
 
 initCalendarYear = 1900
+
+minTrainYr = 1900
+maxTrainYr = 2015
+
 maxAge = 100
 yearsToForecast= 20

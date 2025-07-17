@@ -1,5 +1,5 @@
-import numpy as np
 import pandas as pd
+import numpy as np
 
 from scipy.linalg import svd
 
@@ -141,4 +141,22 @@ def getMxFromHMD(email, password, country):
     rawData = dataResponse.text
     df = pd.read_csv(StringIO(rawData),  sep='\s+', skiprows=1) 
     
+    return df
+
+def add_transformed_cols(df, targetCols, function, prefix=''):
+    """
+    Applies a transformation function to specified columns in a DataFrame.
+
+    Parameters:
+    - df: pd.DataFrame
+    - targetCols: list of column names to transform
+    - function: function to apply to the columns (e.g., np.log)
+    - prefix: prefix to add to new column names
+
+    Returns:
+    - df: original DataFrame with new transformed columns added
+    """
+    for col in targetCols:
+        newCol = f"{prefix}{col}"
+        df[newCol] = function(df[col])
     return df

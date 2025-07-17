@@ -15,7 +15,7 @@ import LC_01_BaseModel as lc1
 ########## 0. Inputs ##########
 gDict = rp.gDict
 gDictInv = rp.gDictInv
-
+maxTrainYr = rp.maxTrainYr
 mxBEDf = lc1.mxBEDf
 mxLC_Base_Df = lc1.mxLC_Base_Df
 
@@ -23,34 +23,74 @@ mxLC_Base_Df = lc1.mxLC_Base_Df
 mx_X = mxBEDf.merge(mxLC_Base_Df, on= ["Age", "Year", "Gender"], how="inner").reset_index()
 mx_X["Gender"] = mx_X["Gender"].map(gDict)
 mx_X.insert(loc=3, column='Cohort', value= mx_X["Year"] - mx_X["Age"])
-mx_X["mx_Y"] = mx_X["mx_LC"]/mx_X["mx_BE"]
-#mx_X.drop(["mx_LC", "mx_BE"], axis=1, inplace=True)
+mx_X["mx_Y_LC"] = mx_X["mx_BE"]/mx_X["mx_LC"]
 
 ########## 2.Defining Training and Testing data ##########
-trainDataYr = 2015
-X_train = udf.FilterByYr(mx_X, trainDataYr, compare="<=")[["Year", "Age", "Cohort", "Gender"]] #DF
-y_train = udf.FilterByYr(mx_X, trainDataYr, compare="<=")["mx_Y"] #Series
 
-X_test = udf.FilterByYr(mx_X, trainDataYr, compare=">")[["Year", "Age", "Cohort", "Gender"]] #DF
-y_test = udf.FilterByYr(mx_X, trainDataYr, compare=">")["mx_Y"] #Series
+X_train = udf.FilterByYr(mx_X, maxTrainYr, compare="<=")[["Year", "Age", "Cohort", "Gender"]] #DF
+y_train = udf.FilterByYr(mx_X, maxTrainYr, compare="<=")["mx_Y_LC"] #Series
 
-########## 3.ML models ##########
-mY_DT = DecisionTreeRegressor(max_depth=4, min_samples_leaf=0.1, random_state=3) 
-mY_RF = RandomForestRegressor(n_estimators=400, min_samples_leaf=0.12, random_state=3)
-mY_GB = GradientBoostingRegressor(n_estimators=400, max_depth=1, random_state=3)
+X_test = udf.FilterByYr(mx_X, maxTrainYr, compare=">")[["Year", "Age", "Cohort", "Gender"]] #DF
+y_test = udf.FilterByYr(mx_X, maxTrainYr, compare=">")["mx_Y_LC"] #Series
 
+########## 3.ML models and metrics for analysis ##########
+mY_DT = DecisionTreeRegressor(
+    max_depth=4,
+    min_samples_leaf=0.10,
+    random_state=3
+    )
+ 
+mY_RF = RandomForestRegressor(
+    n_estimators=200,
+    min_samples_leaf=0.10,
+    random_state=3
+    )
+
+mY_GB = GradientBoostingRegressor(
+    n_estimators=300,
+    learning_rate=0.1,
+    max_depth=4,
+    random_state=3
+    )
+
+# 3.1 Training models
 mY_DT.fit(X_train, y_train)
 mY_RF.fit(X_train, y_train)  
 mY_GB.fit(X_train, y_train)    
 
-mY_ML_Df = udf.FilterByYr(mx_X, trainDataYr, compare="<=").copy()
+# 3.2 Summary df with ML outputs
+mY_ML_Df = udf.FilterByYr(mx_X, maxTrainYr, compare="<=").copy()
 mY_ML_Df["Gender"] = mY_ML_Df["Gender"].map(gDictInv)
-
 mY_ML_Df["mx_Y_DT"] = mY_DT.predict(X_train)
 mY_ML_Df["mx_Y_RF"] = mY_RF.predict(X_train)
 mY_ML_Df["mx_Y_GB"] = mY_GB.predict(X_train)
 
+# 3.3 adding deltas to measure mort adjustments  
+mY_ML_Df = udf.add_transformed_cols(
+    df= mY_ML_Df,
+    targetCols=["mx_Y_LC", "mx_Y_DT", "mx_Y_RF", "mx_Y_GB"], 
+    function= lambda x: x-1, 
+    prefix="delta_"
+    )
+
+# 3.4 Calculating LeeCarter-ML mx´s 
+mY_ML_Df = udf.add_transformed_cols(
+    df= mY_ML_Df,
+    targetCols=["mx_Y_DT", "mx_Y_RF", "mx_Y_GB"], 
+    function= lambda x: x * mY_ML_Df["mx_LC"], 
+    prefix="lc_"
+    )
+
+# 3.5 Calculating LeeCarter-ML log mx´s 
+mY_ML_Df = udf.add_transformed_cols(
+    df= mY_ML_Df,
+    targetCols=["mx_BE", "mx_LC", "lc_mx_Y_DT", "lc_mx_Y_RF", "lc_mx_Y_GB"], 
+    function= np.log, 
+    prefix="log_"
+    )
+
 mY_ML_Df.to_clipboard()
+
 
 """#Testing 
 # Calculate metrics
