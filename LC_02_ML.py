@@ -91,6 +91,13 @@ mY_ML_Df = udf.add_transformed_cols(
 
 mY_ML_Df.to_clipboard()
 
+########## 4.Analyzing ML results ##########
+deltaPlot = sns.heatmap(
+                        mY_ML_Df[mY_ML_Df["Gender"]=="Male"].pivot(index="Year",columns="Age", values="delta_mx_Y_DT"), 
+                        fmt="d",
+                        )
+
+plt.show()
 
 """#Testing 
 # Calculate metrics
