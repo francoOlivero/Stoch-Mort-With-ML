@@ -11,6 +11,9 @@ import requests
 from bs4 import BeautifulSoup
 from io import StringIO
 
+from openpyxl import load_workbook
+import os
+
 def FilterByYr(df, max_year, compare):
     if compare == "<=": 
         df = df[df['Year'] <= max_year]
@@ -160,3 +163,59 @@ def add_transformed_cols(df, targetCols, function, prefix=''):
         newCol = f"{prefix}{col}"
         df[newCol] = function(df[col])
     return df
+
+def mape(y_true: np.ndarray, y_pred: np.ndarray, eps: float = 1e-12) -> float:
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
+    mask = np.isfinite(y_true) & np.isfinite(y_pred)
+    if not np.any(mask):
+        return np.nan
+    y_true_c = np.clip(y_true[mask], eps, None)
+    rel_err = np.abs((y_true_c - y_pred[mask]) / y_true_c)
+    return float(np.mean(rel_err) * 100.0)
+
+def rmse(y_true: np.ndarray, y_pred: np.ndarray) -> float:
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
+    mask = np.isfinite(y_true) & np.isfinite(y_pred)
+    if not np.any(mask):
+        return np.nan
+    return float(np.sqrt(np.mean((y_true[mask] - y_pred[mask])**2)))
+
+def rmsle_from_logs(y_true_log: np.ndarray, y_pred_log: np.ndarray) -> float:
+    # RMSLE como RMSE en espacio log (usando columnas log_ provistas)
+    y_true_log = np.asarray(y_true_log, dtype=float)
+    y_pred_log = np.asarray(y_pred_log, dtype=float)
+    mask = np.isfinite(y_true_log) & np.isfinite(y_pred_log)
+    if not np.any(mask):
+        return np.nan
+    diff = y_true_log[mask] - y_pred_log[mask]
+    return float(np.sqrt(np.mean(diff**2)))
+
+def save_df_to_excel(excel_path: str, df: pd.DataFrame, sheet_name: str):
+    """
+    Guarda un DataFrame en una hoja específica de un archivo Excel (.xlsx).
+    Si la hoja ya existe, la reemplaza.
+    Compatible con pandas >= 2.0
+    """
+
+    try:
+        # Si el archivo existe -> agregar (reemplazando hoja si existe)
+        if os.path.exists(excel_path):
+            with pd.ExcelWriter(
+                excel_path,
+                engine="openpyxl",
+                mode="a",  # append
+                if_sheet_exists="replace"  # reemplaza la hoja si ya existe
+            ) as writer:
+                df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+            print(f"✅ Hoja '{sheet_name}' actualizada correctamente en '{excel_path}'.")
+
+        else:
+            # Si el archivo no existe -> crear nuevo
+            df.to_excel(excel_path, sheet_name=sheet_name, index=False)
+            print(f"📄 Archivo nuevo creado con hoja '{sheet_name}' en '{excel_path}'.")
+
+    except Exception as e:
+        print(f"❌ Error al guardar el DataFrame: {e}")

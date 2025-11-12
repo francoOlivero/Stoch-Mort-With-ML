@@ -3,6 +3,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 import seaborn as sns
+import os
 
 import RunParameters as rp
 import UserDefinedFunctions as udf
@@ -19,114 +20,102 @@ bDf = lc1.bDf
 kDf = lc1.kDf
 
 yearsPlot = lc1.yearsPlot
+
 agesPlot = lc1.agesPlot
 mY_ML_Df = lc2.mY_ML_Df
 
-########## 1. Apply Lee Carter model to mortality adjustments from ML model ##########
-alphaAgg = []
-betaAgg = []
-kappaAgg = []
-agesAgg = []
-gendersAgg = []
-yearsAgg = []
-kappaGendersAgg = []
+# ML targets to decompose via Lee-Carter
+ml_targets = {
+    "Y_DT": "Y_DT",
+    "Y_RF": "Y_RF",
+    "Y_GB": "Y_GB",
+}
 
-for field in targetFields:
-    # 1.1 Preparing mx matrix for SVD process. 
-    mxMatrix = mY_ML_Df[mY_ML_Df["Gender"]==field].pivot_table(values="mx_Y_DT", index="Age", columns="Year")
-    mxMatrix.to_clipboard()
-    # 1.2 LC params
-    alpha_x, beta_x, kappa_t = udf.LeeCarterSVD(mxMatrix)
+########## 1. Apply Lee-Carter to each ML field (by gender) ##########
+# Containers per model for LC components
+a_ml = {}
+b_ml = {}
+k_ml = {}
 
-    # 1.3 Extract and aggregate Lee-Carter components
-    alphaAgg.extend(alpha_x)
-    betaAgg.extend(beta_x)
-    kappaAgg.extend(kappa_t)
-
-    gendersAgg.extend([field]*len(alpha_x))
-    agesAgg.extend(mxMatrix.index.to_numpy())
-    yearsAgg.extend(mxMatrix.columns.to_numpy())
-    kappaGendersAgg.extend([field]*len(kappa_t))
-
-########## 3. Preparing summary of LC model parameters and Df indexes-columns ##########
-a_DT_Df = pd.DataFrame({"Age":agesAgg, "Gender":gendersAgg, "Alpha_DT":alphaAgg})
-b_DT_Df = pd.DataFrame({"Age":agesAgg, "Gender":gendersAgg, "Beta_DT":betaAgg})
-k_DT_Df = pd.DataFrame({"Year":yearsAgg, "Gender": kappaGendersAgg, "Kappa_DT":kappaAgg})
-
-a_DT_Df.to_clipboard()
-b_DT_Df.to_clipboard()
-k_DT_Df.to_clipboard()
-
-########## 2. Forecast future kappa for n-years ##########
+for key, col in ml_targets.items():
+    alphaAgg = []
+    betaAgg = []
+    kappaAgg = []
+    agesAgg = []
+    gendersAgg = []
+    yearsAgg = []
+    kappaGendersAgg = []
     
-"""#Testing
-nForecast = yearsToForecast
-kForecast, confIntKForecast = kARIMA.predict(n_periods=nForecast, return_conf_int=True, alpha= 0.05)
-yearsForecast = np.arange(yearsPlot[-1] + 1, yearsPlot[-1] + 1 + nForecast)
+    for gender in targetFields:
+        # Prepare matrix (ages x years) for the ML adjustment surface
+        mxMatrix = (
+            mY_ML_Df[mY_ML_Df["Gender"] == gender]
+            .pivot_table(values=col, index="Age", columns="Year")
+        )
 
-#Plot kappa and forecast
-plt.figure(figsize=(10, 6))
-plt.plot(yearsPlot, y, label="Observed Kappa (κ)", color="green")
-plt.plot(yearsPlot, kARIMA.fittedvalues(), label="Fitted Kappa (κ)", color="purple")
-plt.plot(yearsForecast, kForecast, label="Forecast Kappa (κ)", color="orange")
-plt.fill_between(
-    yearsForecast,
-    confIntKForecast[:,0],    #Lower conf int Kappa    
-    confIntKForecast[:,1],    #Upper conf int Kappa
-    color="orange",
-    alpha=0.2,
-    label="Confidence Interval",
-)
+        # Lee-Carter on the adjustment surface
+        alpha_x, beta_x, kappa_t = udf.LeeCarterSVD(mxMatrix)
 
-plt.title("Forecast of Kappa (Time Effect) for " + field)
-plt.xlabel("Year")
-plt.ylabel("Kappa (κ)")
-plt.legend()
-plt.show()
-#"""
+        # Aggregate components and identifiers
+        alphaAgg.extend(alpha_x)
+        betaAgg.extend(beta_x)
+        kappaAgg.extend(kappa_t)
 
-########## 3. Adjusting Kappa ##########
+        gendersAgg.extend([gender] * len(alpha_x))
+        agesAgg.extend(mxMatrix.index.to_numpy())
+        yearsAgg.extend(mxMatrix.columns.to_numpy())
+        kappaGendersAgg.extend([gender] * len(kappa_t))
 
-# 2.1 Setting up and fitting ARIMA parameters after selecting best model for both Male and Females
-#kARIMA = pmdarima.ARIMA(order=(1,1,0)).fit(y) #trend="t" Not statistically significant
-########## 3. Reconstruct mortality rates for actual and forecast years ##########
+    # Component DataFrames for this ML model
+    a_ml[key] = pd.DataFrame({"Age": agesAgg, "Gender": gendersAgg, f"Alpha_{key}": alphaAgg})
+    b_ml[key] = pd.DataFrame({"Age": agesAgg, "Gender": gendersAgg, f"Beta_{key}": betaAgg})
+    k_ml[key] = pd.DataFrame({"Year": yearsAgg, "Gender": kappaGendersAgg, f"Kappa_{key}": kappaAgg})
 
-mx_LC_DT = []
+########## 2. Consolidate kappa_t from all ML models for ARIMA analysis ##########
+a_list = []
+b_list = []
+k_list = []
 
-for field in targetFields:
-    mxLCByGender = np.exp(
-        aDf[aDf["Gender"]==field]["Alpha"].values.reshape(-1,1)
-        + bDf[bDf["Gender"]==field]["Beta"].values.reshape(-1,1) 
-        @ kDf[kDf["Gender"]==field]["Kappa"].values.reshape(1,-1)
-        + a_DT_Df[a_DT_Df["Gender"]==field]["Alpha_DT"].values.reshape(-1,1)
-        + b_DT_Df[b_DT_Df["Gender"]==field]["Beta_DT"].values.reshape(-1,1) 
-        @ k_DT_Df[k_DT_Df["Gender"]==field]["Kappa_DT"].values.reshape(1,-1)
-    )
+for key, df in a_ml.items():
+    # rename la columna alpha y agregar el identificador del modelo
+    df_temp = df.copy()
+    df_temp = df_temp.rename(columns={f"Alpha_{key}": "alpha_x"})
+    df_temp["Model"] = key.replace("Y_", "")
+    a_list.append(df_temp)
 
-    mxLCByGenderDf = pd.DataFrame(mxLCByGender, index=agesPlot, columns=yearsPlot).rename_axis(index="Age", columns="Year")
-    mxLCByGenderDf["Gender"] = field
-    mxLCByGenderDf = mxLCByGenderDf.melt(id_vars="Gender", var_name="Year", value_name="mx_LC", ignore_index=False)
-  
-    mx_LC_DT.append(mxLCByGenderDf)
-    
-    """
-    mxMatrix = lc.mxMatrix    
-    #Combine historical and forecasted mortality rates
-    all_years = np.concatenate([yearsPlot, yearsForecast])
-    all_mortality = np.hstack([mxMatrix.values, forecast_mortality])
+# Unir todo en un único DataFrame
+df_a_lc = lc1.aDf.assign(Model="LC")
+df_a_lc = df_a_lc.rename(columns={"Alpha":"alpha_x"})
+a_list.append(df_a_lc)
+df_a_all = pd.concat(a_list, ignore_index=True)
 
-    #Plot historical and forecasted mortality rates
-    plt.figure(figsize=(12, 6))
-    plt.imshow(all_mortality, aspect='auto', cmap='viridis', extent=[all_years[0], all_years[-1], agesPlot[-1], agesPlot[0]])
-    plt.colorbar(label='Mortality Rate')
-    plt.title("Historical and Forecasted Mortality Rates")
-    plt.xlabel("Year")
-    plt.ylabel("Age")
-    plt.show()
-    """
-mx_LC_DT_Df = pd.concat(mx_LC_DT)
-mx_LC_DT_Df.to_clipboard()
+for key, df in b_ml.items():
+    # rename la columna alpha y agregar el identificador del modelo
+    df_temp = df.copy()
+    df_temp = df_temp.rename(columns={f"Beta_{key}": "beta_x"})
+    df_temp["Model"] = key.replace("Y_", "")
+    b_list.append(df_temp)
 
-"""#Testing
-mxLCFittedDf.to_clipboard()
-#"""
+# Unir todo en un único DataFrame
+df_b_lc = lc1.bDf.assign(Model="LC")
+df_b_lc = df_b_lc.rename(columns={"Beta":"beta_x"})
+b_list.append(df_b_lc)
+df_b_all = pd.concat(b_list, ignore_index=True)
+
+for key, df in k_ml.items():
+    # rename la columna kappa y agregar el identificador del modelo
+    df_temp = df.copy()
+    df_temp = df_temp.rename(columns={f"Kappa_{key}": "kappa_t"})
+    df_temp["Model"] = key.replace("Y_", "")
+    k_list.append(df_temp)
+
+# Unir todo en un único DataFrame
+df_kappa_lc = lc1.kDf.assign(Model="LC")
+df_kappa_lc = df_kappa_lc.rename(columns={"Kappa":"kappa_t"})
+k_list.append(df_kappa_lc)
+df_k_all = pd.concat(k_list, ignore_index=True)
+
+udf.save_df_to_excel(rp.summaryFile,df_a_all, f"3.LC_Ax_{rp.minTrainYr}-{rp.maxTrainYr}")
+udf.save_df_to_excel(rp.summaryFile,df_b_all, f"4.LC_Bx_{rp.minTrainYr}-{rp.maxTrainYr}")
+udf.save_df_to_excel(rp.summaryFile,df_k_all, f"5.LC_Kt_{rp.minTrainYr}-{rp.maxTrainYr}")
+

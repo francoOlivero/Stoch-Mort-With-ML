@@ -4,8 +4,7 @@ import os
 
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
-from sklearn.metrics import mean_absolute_error, r2_score, root_mean_squared_error
-from sklearn.model_selection import GridSearchCV, train_test_split
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -17,10 +16,7 @@ import LC_01_BaseModel as lc1
 ########## 0. Inputs ##########
 gDict = rp.gDict
 gDictInv = rp.gDictInv
-minTrainYr = rp.minTrainYr
 maxTrainYr = rp.maxTrainYr
-minTestYr = rp.minTestYr
-maxTestYr = rp.maxTestYr
 mxBEDfTrain = lc1.mxBEDfTrain
 mxLC_Base_Df = lc1.mxLC_Base_Df
 
@@ -32,136 +28,58 @@ mx_X["Y_LC"] = mx_X["mx_BE"]/mx_X["mx_LC"]
 
 ########## 2.Defining Training and Testing data ##########
 
-X_train = mx_X[(mx_X["Year"] >= minTrainYr) & (mx_X["Year"] <= maxTrainYr)][["Year", "Age", "Cohort", "Gender"]] #DF
-y_train = mx_X[(mx_X["Year"] >= minTrainYr) & (mx_X["Year"] <= maxTrainYr)]["Y_LC"] #Series
-X_test = mx_X[(mx_X["Year"] >= minTestYr) & (mx_X["Year"] <= maxTestYr)][["Year", "Age", "Cohort", "Gender"]] #DF
-y_test = mx_X[(mx_X["Year"] >= minTestYr) & (mx_X["Year"] <= maxTestYr)]["Y_LC"] #Series
+X_train = udf.FilterByYr(mx_X, maxTrainYr, compare="<=")[["Year", "Age", "Cohort", "Gender"]] #DF
+y_train = udf.FilterByYr(mx_X, maxTrainYr, compare="<=")["Y_LC"] #Series
 
-########## 3. Hyperparameter Tuning using GridSearchCV ##########
-if rp.tunningFlag == True:
-    # --- Decision Tree ---
-    param_DT = {
-        'max_depth': [5, 10, 20, 40],
-        'min_samples_leaf': [2, 5, 10, 20]
-    }
+X_test = udf.FilterByYr(mx_X, maxTrainYr, compare=">")[["Year", "Age", "Cohort", "Gender"]] #DF
+y_test = udf.FilterByYr(mx_X, maxTrainYr, compare=">")["Y_LC"] #Series
 
-    grid_DT = GridSearchCV(
-        estimator=DecisionTreeRegressor(random_state=1),
-        param_grid=param_DT,
-        scoring='neg_root_mean_squared_error',
-        cv=5,
-        n_jobs=-1,
-        verbose=2
+########## 3.ML models and metrics for analysis ##########
+"""#
+mY_DT = DecisionTreeRegressor(
+    max_depth=5,
+    min_samples_leaf=20,
+    random_state=1
     )
-    grid_DT.fit(X_train, y_train)
-
-    # --- Random Forest ---
-    param_RF = {
-        'n_estimators': [100, 200, 500],
-        'max_depth': [3, 5, 6, 10, 20],
-        'min_samples_leaf': [1, 2, 5]
-    }
-
-    grid_RF = GridSearchCV(
-        estimator=RandomForestRegressor(random_state=1),
-        param_grid=param_RF,
-        scoring='neg_root_mean_squared_error',
-        cv=5,
-        n_jobs=-1,
-        verbose=2
+ 
+mY_RF = RandomForestRegressor(
+    n_estimators=100,
+    max_depth=5,
+    min_samples_leaf=20,
+    random_state=1
     )
-    grid_RF.fit(X_train, y_train)
 
-    # --- Gradient Boosting ---
-    param_GB = {
-        'n_estimators': [200, 500, 1000, 3000, 5000],
-        'learning_rate': [0.01, 0.005, 0.001],
-        'max_depth': [3, 5, 6, 10 ,20]
-    }
-
-    grid_GB = GridSearchCV(
-        estimator=GradientBoostingRegressor(random_state=1),
-        param_grid=param_GB,
-        scoring='neg_root_mean_squared_error',
-        cv=5,
-        n_jobs=-1,
-        verbose=2
+mY_GB = GradientBoostingRegressor(
+    n_estimators=300,
+    learning_rate=0.05,
+    max_depth=5,
+    random_state=1
     )
-    grid_GB.fit(X_train, y_train)
+#"""
 
-    ########## 4. Evaluate best models ##########
-    models_best = {
-        "Decision Tree": grid_DT.best_estimator_,
-        "Random Forest": grid_RF.best_estimator_,
-        "Gradient Boosting": grid_GB.best_estimator_
-    }
-    results_summary = []
-    for name, model in models_best.items():
-        y_pred = model.predict(X_test)
+mY_DT = DecisionTreeRegressor(
+    max_depth=40,
+    min_samples_leaf=2,
+    )
+ 
+mY_RF = RandomForestRegressor(
+    n_estimators=200,
+    random_state=1
+    )
 
-        mae = mean_absolute_error(y_test, y_pred)
-        rmse = root_mean_squared_error(y_test, y_pred)
-        r2 = r2_score(y_test, y_pred)
-        
-        # Seleccionar el objeto grid correspondiente
-        if name == "Decision Tree":
-            grid = grid_DT
-        elif name == "Random Forest":
-            grid = grid_RF
-        else:
-            grid = grid_GB
-        
-        best_params = grid.best_params_
-        best_score_cv = -grid.best_score_  # Negativo porque GridSearch usa "neg_root_mean_squared_error"
+mY_GB = GradientBoostingRegressor(
+    n_estimators=5000,
+    learning_rate=0.001,
+    max_depth=6,
+    random_state=1
+    )
 
-        # Imprimir resumen individual
-        print(f"\n{name} (Mejores hiperparámetros: {best_params})")
-        print(f"MAE: {mae:.6f} | RMSE: {rmse:.6f} | R²: {r2:.6f} | RMSE(CV): {best_score_cv:.6f}")
-        
-        # Agregar fila al resumen
-        results_summary.append({
-            "Modelo": name,
-            "Best_Params": best_params,
-            "CV_RMSE": best_score_cv,
-            "Test_MAE": mae,
-            "Test_RMSE": rmse,
-            "Test_R2": r2
-        })
+# 3.1 Training models
+mY_DT.fit(X_train, y_train)
+mY_RF.fit(X_train, y_train)  
+mY_GB.fit(X_train, y_train)    
 
-    tunning_df = pd.DataFrame(results_summary)   
-
-    ########## 5. Final Model Training and Predictions ##########
-    
-    # 3.1 Best trained models
-    mY_DT = grid_DT.best_estimator_
-    mY_RF = grid_RF.best_estimator_
-    mY_GB = grid_GB.best_estimator_
-else:
-    mY_DT = DecisionTreeRegressor(
-        max_depth=20,
-        min_samples_leaf=20,
-        random_state=1
-        )
-    
-    mY_RF = RandomForestRegressor(
-        n_estimators=200,
-        max_depth=20,
-        min_samples_leaf=5,
-        random_state=1
-        )
-
-    mY_GB = GradientBoostingRegressor(
-        n_estimators=200,
-        learning_rate=0.005,
-        max_depth=10,
-        random_state=1
-        )
-    mY_DT.fit(X_train, y_train)
-    mY_RF.fit(X_train, y_train)
-    mY_GB.fit(X_train, y_train)
-    
 # 3.2 Summary df with ML outputs
-
 mY_ML_Df = udf.FilterByYr(mx_X, maxTrainYr, compare="<=").copy()
 mY_ML_Df["Gender"] = mY_ML_Df["Gender"].map(gDictInv)
 mY_ML_Df["Y_DT"] = mY_DT.predict(X_train)
@@ -286,7 +204,7 @@ plt.subplots_adjust(
 
 # === 9) Guardar imagen automáticamente en Descargas ===
 downloads_folder = os.path.join(os.path.expanduser("~"), "Downloads")
-output_path = os.path.join(downloads_folder, f"Heatmaps_DeltaMx_Modelos_{rp.minTrainYr}-{rp.maxTrainYr}.png")
+output_path = os.path.join(downloads_folder, "Heatmaps_DeltaMx_Modelos.png")
 fig.savefig(output_path, dpi=300, bbox_inches="tight")
 
 print(f"\n✅ Imagen guardada correctamente en:\n{output_path}")
@@ -319,8 +237,5 @@ for model_key, col_val, col_log in models:
 
 fitting_metrics_by_gender_df = pd.DataFrame(metrics_by_gender).sort_values(["Model", "Gender"])
 
-if rp.tunningFlag == True: 
-    udf.save_df_to_excel(rp.summaryFile, tunning_df, f"0.ML_Tuning_{rp.minTrainYr}-{rp.maxTrainYr}")
-
 udf.save_df_to_excel(rp.summaryFile, mY_ML_Df, f"1.LC_Y_ML_{rp.minTrainYr}-{rp.maxTrainYr}")
-udf.save_df_to_excel(rp.summaryFile, fitting_metrics_by_gender_df, f"2.ML_Fitting_{rp.minTrainYr}-{rp.maxTrainYr}")
+udf.save_df_to_excel(rp.summaryFile, fitting_metrics_by_gender_df, f"2.Fitting_{rp.minTrainYr}-{rp.maxTrainYr}")

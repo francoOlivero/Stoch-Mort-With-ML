@@ -15,14 +15,21 @@ email = rp.email
 password = rp.password
 mxRatesPath = rp.mxRates
 
-initCalendarYear = rp.initCalendarYear
+minTrainYr = rp.minTrainYr
+maxTrainYr = rp.maxTrainYr
+minTestYr = rp.minTestYr
+maxTestYr = rp.maxTestYr
+minOOByr = rp.minOOByr
+maxOOByr = rp.maxOOByr
+
 maxAge = rp.maxAge
+
 targetFields = rp.genders
 targetIndexes = rp.headers
 
 ########## 1. Preparing Data ##########
-#mxRates = pd.read_csv(mxRatesPath, sep="\s+", header=1)
-mxRates = udf.getMxFromHMD(email, password, country) 
+mxRates = pd.read_csv(mxRatesPath, sep="\s+", header=1)
+#mxRates = udf.getMxFromHMD(email, password, country) 
 
 # 1.1 Cleaning up and defining formats, setting zero to NaN and filtering
 mxRates["Age"] = mxRates["Age"].replace("110+", 110).astype(int)
@@ -35,13 +42,17 @@ mxRates[targetFields] = (
     .replace(0.0, np.nan)
 )   
 
-mxRates = mxRates[mxRates["Year"]>=initCalendarYear] 
-mxRates = mxRates[mxRates["Age"]<= maxAge]
-mxRates = mxRates[(targetIndexes + targetFields)]
+mxRatesTrain = mxRates[(mxRates["Year"]>=minTrainYr) & (mxRates["Year"]<=maxTestYr)] 
+mxRatesTrain = mxRatesTrain[mxRatesTrain["Age"]<= maxAge]
+mxRatesTrain = mxRatesTrain[(targetIndexes + targetFields)]
 
-# 1.2 Setting Output for ML feature
-mxBEDf = mxRates.melt(id_vars=("Year", "Age"), var_name="Gender", value_name="mx_BE").set_index("Age")
-mxBEDf.to_clipboard()
+# 1.2 Setting Output for ML feature and for all data
+mxBEDfTrain = mxRatesTrain.melt(id_vars=("Year", "Age"), var_name="Gender", value_name="mx_BE").set_index("Age")
+
+mxBEDfAll = mxRates[(mxRates["Year"]>=minTrainYr)]
+mxBEDfAll = mxBEDfAll[mxBEDfAll["Age"]<= maxAge]
+mxBEDfAll = mxBEDfAll[(targetIndexes + targetFields)]
+mxBEDfAll = mxBEDfAll.melt(id_vars=("Year", "Age"), var_name="Gender", value_name="mx_BE").set_index("Age")
 
 ########## 2. LC parameter estimations usign LC SVD ##########
 alphaAgg = []
@@ -54,7 +65,7 @@ kappaGendersAgg = []
 
 for field in targetFields:
     # 2.1 Preparing mx matrix for SVD process. For NaN, interpolate function repeats the last value. 
-    mxMatrix = mxRates.pivot_table(values=field, index="Age", columns="Year")
+    mxMatrix = mxRatesTrain.pivot_table(values=field, index="Age", columns="Year")
     mxMatrix = mxMatrix.interpolate(axis=0, method="linear")    #Axis=0 stands for rows *it may impact the final values.
     
     # 2.2 LC params
@@ -93,15 +104,3 @@ for field in targetFields:
     
     mxLC.append(mxLCByGenderDf)
 mxLC_Base_Df = pd.concat(mxLC)
-
-aDf.to_clipboard()
-bDf.to_clipboard()
-kDf.to_clipboard()
-mxLC_Base_Df.to_clipboard()
-
-"""#Plot LC parameters
-sns.relplot(x="Age", y="Alpha", data=aDf, hue= "Gender")
-sns.relplot(x="Age", y="Beta", data=bDf,  hue= "Gender")
-sns.relplot(x="Year", y="Kappa", data=kDf,  hue= "Gender")
-plt.show()
-#"""
