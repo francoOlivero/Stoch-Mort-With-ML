@@ -32,12 +32,13 @@ mx_X["Y_LC"] = mx_X["mx_BE"]/mx_X["mx_LC"]
 
 ########## 2.Defining Training and Testing data ##########
 
-X_train = mx_X[(mx_X["Year"] >= minTrainYr) & (mx_X["Year"] <= maxTrainYr)][["Year", "Age", "Cohort", "Gender"]] #DF
+X_train = mx_X[(mx_X["Year"] >= minTrainYr) & (mx_X["Year"] <= maxTrainYr)][[ "Gender","Age","Year","Cohort",]] #DF
 y_train = mx_X[(mx_X["Year"] >= minTrainYr) & (mx_X["Year"] <= maxTrainYr)]["Y_LC"] #Series
-X_test = mx_X[(mx_X["Year"] >= minTestYr) & (mx_X["Year"] <= maxTestYr)][["Year", "Age", "Cohort", "Gender"]] #DF
+
+X_test = mx_X[(mx_X["Year"] >= minTestYr) & (mx_X["Year"] <= maxTestYr)][["Gender","Age","Year","Cohort"]] #DF
 y_test = mx_X[(mx_X["Year"] >= minTestYr) & (mx_X["Year"] <= maxTestYr)]["Y_LC"] #Series
 
-########## 3. Hyperparameter Tuning using GridSearchCV ##########
+########## 3. Tuneo de hiperparametros usando GridSearchCV ##########
 if rp.tunningFlag == True:
     # --- Decision Tree ---
     param_DT = {
@@ -51,9 +52,8 @@ if rp.tunningFlag == True:
         scoring='neg_root_mean_squared_error',
         cv=5,
         n_jobs=-1,
-        verbose=2
+        verbose=1
     )
-    grid_DT.fit(X_train, y_train)
 
     # --- Random Forest ---
     param_RF = {
@@ -68,13 +68,12 @@ if rp.tunningFlag == True:
         scoring='neg_root_mean_squared_error',
         cv=5,
         n_jobs=-1,
-        verbose=2
+        verbose=1
     )
-    grid_RF.fit(X_train, y_train)
 
     # --- Gradient Boosting ---
     param_GB = {
-        'n_estimators': [200, 500, 1000, 3000, 5000],
+        'n_estimators': [200, 500, 1000],
         'learning_rate': [0.01, 0.005, 0.001],
         'max_depth': [3, 5, 6, 10 ,20]
     }
@@ -85,15 +84,29 @@ if rp.tunningFlag == True:
         scoring='neg_root_mean_squared_error',
         cv=5,
         n_jobs=-1,
-        verbose=2
-    )
+        verbose=1
+    ) 
+
+    # Ajuste de hiperparametros
+    grid_DT.fit(X_train, y_train)
+    grid_RF.fit(X_train, y_train)
     grid_GB.fit(X_train, y_train)
 
-    ########## 4. Evaluate best models ##########
+    # Modelos con mejores hiperparametros
+    mY_DT = grid_DT.best_estimator_
+    mY_RF = grid_RF.best_estimator_
+    mY_GB = grid_GB.best_estimator_
+
+    # Reajuste con hiperparametros optimos
+    mY_DT.fit(X_train, y_train)
+    mY_RF.fit(X_train, y_train)
+    mY_GB.fit(X_train, y_train)
+    
+    # 3.1 Resumen de resultados de optimización CV 
     models_best = {
-        "Decision Tree": grid_DT.best_estimator_,
-        "Random Forest": grid_RF.best_estimator_,
-        "Gradient Boosting": grid_GB.best_estimator_
+        "Decision Tree": grid_DT,
+        "Random Forest": grid_RF,
+        "Gradient Boosting": grid_GB
     }
     results_summary = []
     for name, model in models_best.items():
@@ -128,41 +141,35 @@ if rp.tunningFlag == True:
             "Test_R2": r2
         })
 
-    tunning_df = pd.DataFrame(results_summary)   
+    tunning_df = pd.DataFrame(results_summary)  
 
-    ########## 5. Final Model Training and Predictions ##########
-    
-    # 3.1 Best trained models
-    mY_DT = grid_DT.best_estimator_
-    mY_RF = grid_RF.best_estimator_
-    mY_GB = grid_GB.best_estimator_
-else:
+else:    #Modelos ya tuneados
     mY_DT = DecisionTreeRegressor(
         max_depth=20,
         min_samples_leaf=20,
-        random_state=1
+        random_state=40
         )
     
     mY_RF = RandomForestRegressor(
         n_estimators=200,
         max_depth=20,
         min_samples_leaf=5,
-        random_state=1
+        random_state=40
         )
 
     mY_GB = GradientBoostingRegressor(
-        n_estimators=200,
+        n_estimators=1000,
         learning_rate=0.005,
-        max_depth=10,
-        random_state=1
+        max_depth=6,
+        random_state=40
         )
     mY_DT.fit(X_train, y_train)
     mY_RF.fit(X_train, y_train)
     mY_GB.fit(X_train, y_train)
     
-# 3.2 Summary df with ML outputs
+# 3.2 Resumen de predicciones ML sobre todo el conjunto de datos
 
-mY_ML_Df = udf.FilterByYr(mx_X, maxTrainYr, compare="<=").copy()
+mY_ML_Df = mx_X[(mx_X["Year"] >= minTrainYr) & (mx_X["Year"] <= maxTrainYr)].copy()
 mY_ML_Df["Gender"] = mY_ML_Df["Gender"].map(gDictInv)
 mY_ML_Df["Y_DT"] = mY_DT.predict(X_train)
 mY_ML_Df["Y_RF"] = mY_RF.predict(X_train)
@@ -217,7 +224,7 @@ all_ages = np.sort(mY_ML_Df["Age"].unique())
 
 # Definir ticks cada 15 unidades
 year_ticks = all_years[::15] if len(all_years) > 15 else all_years
-age_ticks = np.arange(0, 106, 15)  # edades cada 15 años
+age_ticks = np.arange(0, 100, 15)  # edades cada 15 años
 
 # === 5) Loop para generar heatmaps ===
 for i, delta in enumerate(deltas):
@@ -286,7 +293,7 @@ plt.subplots_adjust(
 
 # === 9) Guardar imagen automáticamente en Descargas ===
 downloads_folder = os.path.join(os.path.expanduser("~"), "Downloads")
-output_path = os.path.join(downloads_folder, f"Heatmaps_DeltaMx_Modelos_{rp.minTrainYr}-{rp.maxTrainYr}.png")
+output_path = os.path.join(downloads_folder, f"Heatmaps_DeltaMx_Modelos_T{rp.minTrainYr}-{rp.maxTrainYr}_F{rp.minOOByr}-{rp.maxOOByr}.png")
 fig.savefig(output_path, dpi=300, bbox_inches="tight")
 
 print(f"\n✅ Imagen guardada correctamente en:\n{output_path}")
@@ -320,7 +327,7 @@ for model_key, col_val, col_log in models:
 fitting_metrics_by_gender_df = pd.DataFrame(metrics_by_gender).sort_values(["Model", "Gender"])
 
 if rp.tunningFlag == True: 
-    udf.save_df_to_excel(rp.summaryFile, tunning_df, f"0.ML_Tuning_{rp.minTrainYr}-{rp.maxTrainYr}")
+    udf.save_df_to_excel(rp.summaryFile, tunning_df, f"0.Tuning_T{rp.minTrainYr}-{rp.maxTrainYr}_F{rp.minOOByr}-{rp.maxOOByr}")
 
-udf.save_df_to_excel(rp.summaryFile, mY_ML_Df, f"1.LC_Y_ML_{rp.minTrainYr}-{rp.maxTrainYr}")
-udf.save_df_to_excel(rp.summaryFile, fitting_metrics_by_gender_df, f"2.ML_Fitting_{rp.minTrainYr}-{rp.maxTrainYr}")
+udf.save_df_to_excel(rp.summaryFile, mY_ML_Df, f"1.Y_ML_T{rp.minTrainYr}-{rp.maxTrainYr}_F{rp.minOOByr}-{rp.maxOOByr}")
+udf.save_df_to_excel(rp.summaryFile, fitting_metrics_by_gender_df, f"2.Fitting_T{rp.minTrainYr}-{rp.maxTrainYr}_F{rp.minOOByr}-{rp.maxOOByr}")

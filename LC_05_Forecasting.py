@@ -18,6 +18,8 @@ targetFields = rp.genders
 yearsToForecast = rp.yearsToForecast
 minTestYr = rp.minTestYr
 maxTestYr = rp.maxTestYr
+minOOByr = rp.minOOByr
+maxOOByr = rp.maxOOByr
 
 yearsPlot = lc1.yearsPlot
 agesPlot = lc1.agesPlot
@@ -105,7 +107,7 @@ LC_DT_Df = LC_DT_Df.reset_index().assign(Model="DT")
 LC_RF_Df = LC_RF_Df.reset_index().assign(Model="RF")
 LC_GB_Df = LC_GB_Df.reset_index().assign(Model="GB")
 
-# Concatenar todas las superficies
+# Dataframe unico con todas las tasas de mortalidad reales y estimadas
 mx_LC_All_Df = pd.concat(
     [BE_mx_DF, LC_mx_Df, LC_DT_Df, LC_RF_Df, LC_GB_Df],
     ignore_index=True
@@ -123,8 +125,8 @@ models = [
 # Cuadro resumen por género para métricas de poder predictivo
 metrics_by_gender = []
 
-mx_forecasted = mx_LC_All_Df[(mx_LC_All_Df["Year"] >= minTestYr) & (mx_LC_All_Df["Year"] <= maxTestYr)]
-    
+mx_forecasted = mx_LC_All_Df[(mx_LC_All_Df["Year"] >= minOOByr) & (mx_LC_All_Df["Year"] <= maxOOByr)]
+
 for model_key, col_val, col_log in models:
     for gender in sorted(mx_forecasted["Gender"].unique()):
         sub = mx_forecasted[mx_forecasted["Gender"] == gender]
@@ -144,5 +146,5 @@ for model_key, col_val, col_log in models:
 
 forecasting_metrics_by_gender_df = pd.DataFrame(metrics_by_gender).sort_values(["Model", "Gender"])
 
-udf.save_df_to_excel(rp.summaryFile,mx_LC_All_Df, f"9.LC_mx_ML_{rp.minTrainYr}-{rp.maxTrainYr}")
-udf.save_df_to_excel(rp.summaryFile,forecasting_metrics_by_gender_df, f"10.LC_Forecasting_{rp.minTrainYr}-{rp.maxTrainYr}")
+udf.save_df_to_excel(rp.summaryFile,mx_LC_All_Df, f"9.mx_T{rp.minTrainYr}-{rp.maxTrainYr}_F{rp.minOOByr}-{rp.maxOOByr}")
+udf.save_df_to_excel(rp.summaryFile,forecasting_metrics_by_gender_df, f"10.Proj_T{rp.minTrainYr}-{rp.maxTrainYr}_F{rp.minOOByr}-{rp.maxOOByr}")

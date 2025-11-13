@@ -54,7 +54,8 @@ for key, col in ml_targets.items():
         )
 
         # Lee-Carter on the adjustment surface
-        alpha_x, beta_x, kappa_t = udf.LeeCarterSVD(mxMatrix)
+        print(f"Lee-Carter decomposition for ML model: {key}, Gender: {gender}")
+        alpha_x, beta_x, kappa_t = udf.LeeCarterSVD(mxMatrix, normalizeFlag=False)
 
         # Aggregate components and identifiers
         alphaAgg.extend(alpha_x)
@@ -115,7 +116,6 @@ df_kappa_lc = df_kappa_lc.rename(columns={"Kappa":"kappa_t"})
 k_list.append(df_kappa_lc)
 df_k_all = pd.concat(k_list, ignore_index=True)
 
-udf.save_df_to_excel(rp.summaryFile,df_a_all, f"3.LC_Ax_{rp.minTrainYr}-{rp.maxTrainYr}")
-udf.save_df_to_excel(rp.summaryFile,df_b_all, f"4.LC_Bx_{rp.minTrainYr}-{rp.maxTrainYr}")
-udf.save_df_to_excel(rp.summaryFile,df_k_all, f"5.LC_Kt_{rp.minTrainYr}-{rp.maxTrainYr}")
-
+udf.save_df_to_excel(rp.summaryFile,df_a_all, f"3.Ax_T{rp.minTrainYr}-{rp.maxTrainYr}_F{rp.minOOByr}-{rp.maxOOByr}")
+udf.save_df_to_excel(rp.summaryFile,df_b_all, f"4.Bx_T{rp.minTrainYr}-{rp.maxTrainYr}_F{rp.minOOByr}-{rp.maxOOByr}")
+udf.save_df_to_excel(rp.summaryFile,df_k_all, f"5.Kt_T{rp.minTrainYr}-{rp.maxTrainYr}_F{rp.minOOByr}-{rp.maxOOByr}")

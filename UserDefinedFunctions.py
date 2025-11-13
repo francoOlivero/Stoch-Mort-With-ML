@@ -21,7 +21,7 @@ def FilterByYr(df, max_year, compare):
         df = df[df['Year'] > max_year]
     return df
 
-def LeeCarterSVD(mxMatrix: pd.DataFrame):
+def LeeCarterSVD(mxMatrix: pd.DataFrame, normalizeFlag=True):
     """
     Perform Lee-Carter decomposition on a matrix of mortality rates (mxMatrix).
     
@@ -44,11 +44,18 @@ def LeeCarterSVD(mxMatrix: pd.DataFrame):
     bRaw = U[:, 0]
     
     ax = mxLog.mean(axis=1)
-    bx = bRaw / bRaw.sum()
-    kt = bRaw.sum() * S[0] * Vt[0, :]
+     
+    if normalizeFlag == True:
+        bx = bRaw / bRaw.sum()
+        kt = bRaw.sum() * S[0] * Vt[0, :]
+    else:
+        bx = bRaw
+        kt = S[0] * Vt[0, :]   
     
     # Check that SVD works well 
     assert np.allclose(mxLogCentered, U @ np.diag(S) @ Vt) 
+    
+    print("Variance Explained by first singular value: ", S[0]**2 / np.sum(S**2))
     
     return ax, bx, kt
 

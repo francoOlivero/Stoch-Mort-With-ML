@@ -218,11 +218,11 @@ plt.subplots_adjust(
 
 # === Guardar imagen ===
 downloads_folder = os.path.join(os.path.expanduser("~"), "Downloads")
-output_path = os.path.join(downloads_folder, f"Kappa_Series_Modelos_{rp.minTrainYr}-{rp.maxTrainYr}.png")
+output_path = os.path.join(downloads_folder, f"Kappa_Series_Modelos_T{rp.minTrainYr}-{rp.maxTrainYr}_F{rp.minOOByr}-{rp.maxOOByr}.png")
 
 fig.savefig(output_path, dpi=300, bbox_inches="tight")
 print(f"\n✅ Imagen guardada correctamente en:\n{output_path}")
 
-udf.save_df_to_excel(rp.summaryFile,kARIMAsDf_All, f"6.kARIMA_Models_{rp.minTrainYr}-{rp.maxTrainYr}")
-udf.save_df_to_excel(rp.summaryFile,kARIMAParamDfByGender_All, f"7.kARIMA_Params_{rp.minTrainYr}-{rp.maxTrainYr}")
-udf.save_df_to_excel(rp.summaryFile,df_k_combined_all, f"8.kARIMA_Kappa_{rp.minTrainYr}-{rp.maxTrainYr}")
+udf.save_df_to_excel(rp.summaryFile,kARIMAsDf_All, f"6.kM_T{rp.minTrainYr}-{rp.maxTrainYr}_F{rp.minOOByr}-{rp.maxOOByr}")
+udf.save_df_to_excel(rp.summaryFile,kARIMAParamDfByGender_All, f"7.kP_T{rp.minTrainYr}-{rp.maxTrainYr}_F{rp.minOOByr}-{rp.maxOOByr}")
+udf.save_df_to_excel(rp.summaryFile,df_k_combined_all, f"8.kt_T{rp.minTrainYr}-{rp.maxTrainYr}_F{rp.minOOByr}-{rp.maxOOByr}")

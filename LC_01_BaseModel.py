@@ -1,3 +1,4 @@
+from anyio import key
 import numpy as np
 import pandas as pd
 
@@ -69,7 +70,8 @@ for field in targetFields:
     mxMatrix = mxMatrix.interpolate(axis=0, method="linear")    #Axis=0 stands for rows *it may impact the final values.
     
     # 2.2 LC params
-    alpha_x, beta_x, kappa_t = udf.LeeCarterSVD(mxMatrix)
+    print(f"Lee-Carter decomposition for LC model, Gender: {field}")
+    alpha_x, beta_x, kappa_t = udf.LeeCarterSVD(mxMatrix, normalizeFlag=True)
 
     # 2.3 Extract and aggregate Lee-Carter components
     alphaAgg.extend(alpha_x)

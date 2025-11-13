@@ -21,12 +21,12 @@ minTestYr = 1915
 maxTestYr = 2010
 
 minOOByr = 2011
-maxOOByr = 2022
+maxOOByr = 2019
 
-tunningFlag = False
+tunningFlag = True
 
 maxAge = 100
 
 yearsToForecast= 30
 
-summaryFile = r"C:\Users\frank\Downloads\LC_Summary_Outputs_" + f"{minTrainYr}-{maxTrainYr}.xlsx"
+summaryFile = r"C:\Users\frank\Downloads\LC_Summary_Outputs_" + f"T{minTrainYr}-{maxTrainYr}-F{minOOByr}-{maxOOByr}.xlsx"
