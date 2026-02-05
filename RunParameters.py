@@ -24,6 +24,7 @@ minOOByr = 2011
 maxOOByr = 2019
 
 tunningFlag = True
+autoARIMAFlag = True
 
 maxAge = 100
 

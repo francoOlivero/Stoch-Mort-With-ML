@@ -43,7 +43,7 @@ if rp.tunningFlag == True:
     # --- Decision Tree ---
     param_DT = {
         'max_depth': [5, 10, 20, 40],
-        'min_samples_leaf': [2, 5, 10, 20]
+        'min_samples_leaf': [1, 5, 10, 20]
     }
 
     grid_DT = GridSearchCV(
@@ -87,20 +87,20 @@ if rp.tunningFlag == True:
         verbose=1
     ) 
 
-    # Ajuste de hiperparametros
+    # Ajuste de hiperparametros y resumenes k-fold CV por modelo
     grid_DT.fit(X_train, y_train)
-    grid_RF.fit(X_train, y_train)
-    grid_GB.fit(X_train, y_train)
+    cv_results_DT = pd.DataFrame(grid_DT.cv_results_).sort_values(by="mean_test_score", ascending=False)
 
-    # Modelos con mejores hiperparametros
+    grid_RF.fit(X_train, y_train)
+    cv_results_RF = pd.DataFrame(grid_RF.cv_results_).sort_values(by="mean_test_score", ascending=False)
+
+    grid_GB.fit(X_train, y_train)
+    cv_results_GB = pd.DataFrame(grid_GB.cv_results_).sort_values(by="mean_test_score", ascending=False)
+
+    # Modelos ya entrenados con mejores hiperparametros
     mY_DT = grid_DT.best_estimator_
     mY_RF = grid_RF.best_estimator_
     mY_GB = grid_GB.best_estimator_
-
-    # Reajuste con hiperparametros optimos
-    mY_DT.fit(X_train, y_train)
-    mY_RF.fit(X_train, y_train)
-    mY_GB.fit(X_train, y_train)
     
     # 3.1 Resumen de resultados de optimización CV 
     models_best = {
@@ -143,25 +143,25 @@ if rp.tunningFlag == True:
 
     tunning_df = pd.DataFrame(results_summary)  
 
-else:    #Modelos ya tuneados
+else:    #Modelos tuneados período 1915-2010
     mY_DT = DecisionTreeRegressor(
-        max_depth=20,
-        min_samples_leaf=20,
-        random_state=40
+        max_depth=5,
+        min_samples_leaf=5,
+        random_state=1
         )
     
     mY_RF = RandomForestRegressor(
         n_estimators=200,
-        max_depth=20,
-        min_samples_leaf=5,
-        random_state=40
+        max_depth=5,
+        min_samples_leaf=1,
+        random_state=1
         )
 
     mY_GB = GradientBoostingRegressor(
-        n_estimators=1000,
-        learning_rate=0.005,
-        max_depth=6,
-        random_state=40
+        n_estimators=500,
+        learning_rate=0.001,
+        max_depth=10,
+        random_state=1
         )
     mY_DT.fit(X_train, y_train)
     mY_RF.fit(X_train, y_train)
@@ -328,6 +328,8 @@ fitting_metrics_by_gender_df = pd.DataFrame(metrics_by_gender).sort_values(["Mod
 
 if rp.tunningFlag == True: 
     udf.save_df_to_excel(rp.summaryFile, tunning_df, f"0.Tuning_T{rp.minTrainYr}-{rp.maxTrainYr}_F{rp.minOOByr}-{rp.maxOOByr}")
-
+    udf.save_df_to_excel(rp.summaryFile, cv_results_DT, f"0.kCV-DT_T{rp.minTrainYr}-{rp.maxTrainYr}_F{rp.minOOByr}-{rp.maxOOByr}")
+    udf.save_df_to_excel(rp.summaryFile, cv_results_RF, f"0.kCV-RF_T{rp.minTrainYr}-{rp.maxTrainYr}_F{rp.minOOByr}-{rp.maxOOByr}")
+    udf.save_df_to_excel(rp.summaryFile, cv_results_GB, f"0.kCV-GB_T{rp.minTrainYr}-{rp.maxTrainYr}_F{rp.minOOByr}-{rp.maxOOByr}")
 udf.save_df_to_excel(rp.summaryFile, mY_ML_Df, f"1.Y_ML_T{rp.minTrainYr}-{rp.maxTrainYr}_F{rp.minOOByr}-{rp.maxOOByr}")
 udf.save_df_to_excel(rp.summaryFile, fitting_metrics_by_gender_df, f"2.Fitting_T{rp.minTrainYr}-{rp.maxTrainYr}_F{rp.minOOByr}-{rp.maxOOByr}")

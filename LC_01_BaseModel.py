@@ -29,11 +29,13 @@ targetFields = rp.genders
 targetIndexes = rp.headers
 
 ########## 1. Preparing Data ##########
-mxRates = pd.read_csv(mxRatesPath, sep="\s+", header=1)
-#mxRates = udf.getMxFromHMD(email, password, country) 
+#mxRates = pd.read_csv(mxRatesPath, sep="\s+", header=1) #en caso de Input en computadora local
+mxRates = udf.getMxFromHMD(email, password, country)  #en caso de descarga de información web
 
 # 1.1 Cleaning up and defining formats, setting zero to NaN and filtering
 mxRates["Age"] = mxRates["Age"].replace("110+", 110).astype(int)
+
+mxRates.to_clipboard()
 
 mxRates[targetFields] = (
     mxRates[targetFields]

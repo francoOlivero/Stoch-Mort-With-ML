@@ -23,14 +23,13 @@ df_k_all = lc3.df_k_all
 kARIMA_param_config = {
     ("Male", "LC"): {"final_order": (0, 1, 0)},
     ("Male", "DT"): {"final_order": (0, 1, 0)},
-    ("Male", "RF"): {"final_order": (0, 1, 0)},
-    ("Male", "GB"): {"final_order": (0, 1, 0)},
-    ("Female", "LC"): {"final_order": (0, 1, 0)},
+    ("Male", "RF"): {"final_order": (1, 1, 0)},
+    ("Male", "GB"): {"final_order": (2, 0, 0)},
+    ("Female", "LC"): {"final_order": (0, 1, 1)},
     ("Female", "DT"): {"final_order": (0, 1, 0)},
-    ("Female", "RF"): {"final_order": (0, 1, 0)},
+    ("Female", "RF"): {"final_order": (1, 1, 0)},
     ("Female", "GB"): {"final_order": (0, 1, 0)},
 }
-
 
 ########## 2. Ajuste y proyección ##########
 all_kARIMAs = []
@@ -47,28 +46,29 @@ for model in df_k_all["Model"].unique():
             .sort_values("Year")["kappa_t"]
         )
 
-        if y.empty:
-            continue
-
         # Auto-fit ARIMA
-        kARIMAs = pmdarima.auto_arima(
-            y,
-            start_p=0, start_q=0,
-            max_p=3, max_q=3,
-            seasonal=False,
-            information_criterion="bic",
-            stepwise=False,
-            suppress_warnings=True,
-            return_valid_fits=True,
-            trace=False,
-            with_intercept=True 
-        )
+        if rp.autoARIMAFlag == True:
+            kARIMAs = pmdarima.auto_arima(
+                y,
+                start_p=0, start_q=0,
+                max_p=3, max_q=3,
+                max_d=1,
+                stationary=False,
+                seasonal=False,
+                information_criterion="bic",
+                stepwise=False,
+                suppress_warnings=True,
+                return_valid_fits=True,
+                trace=False,
+                with_intercept=True,
+                alpha=0.05 
+            )
 
-        # === 2.1 Resumen de modelos probados ===
-        kARIMAsDf = udf.ARIMAsGrid(kARIMAs)
-        kARIMAsDf.insert(0, "Gender", field)
-        kARIMAsDf.insert(1, "Model", model)
-        all_kARIMAs.append(kARIMAsDf)
+            # === 2.1 Resumen de modelos probados ===
+            kARIMAsDf = udf.ARIMAsGrid(kARIMAs)
+            kARIMAsDf.insert(0, "Gender", field)
+            kARIMAsDf.insert(1, "Model", model)
+            all_kARIMAs.append(kARIMAsDf)
        
         # === 2.2 Ajuste del modelo final según configuración ===
         kARIMA = pmdarima.ARIMA(order=kARIMA_param_config[(field, model)]["final_order"]).fit(y)
@@ -122,7 +122,9 @@ for model in df_k_all["Model"].unique():
 
 
 ########## 4. Consolidar resultados ##########
-kARIMAsDf_All = pd.concat(all_kARIMAs, ignore_index=True)
+if rp.autoARIMAFlag == True: 
+    kARIMAsDf_All = pd.concat(all_kARIMAs, ignore_index=True)
+
 kARIMAParamDfByGender_All = pd.concat(all_kARIMA_params, ignore_index=True)
 df_k_combined_all = pd.concat(all_kappa_series, ignore_index=True)
 
@@ -205,7 +207,10 @@ for i, model in enumerate(model_labels):
 
 # === Título general ===
 fig.suptitle("Evolución de " + r"$\kappa_t$" + " y " + r"$\kappa_t^{\psi}$" +
-             " — Observado, Proyectado e Intervalos de Confianza (95%)", fontsize=11)
+              " — Observado, Proyectado e Intervalos de Confianza (95%)", fontsize=11)
+
+#fig.suptitle("Evolución de " + r"$\kappa_t$" + " y " + r"$\kappa_t^{\psi}$" +
+#             " — Observado y Proyectado", fontsize=11)
 
 # === Ajuste de espaciado ===
 plt.subplots_adjust(
@@ -223,6 +228,8 @@ output_path = os.path.join(downloads_folder, f"Kappa_Series_Modelos_T{rp.minTrai
 fig.savefig(output_path, dpi=300, bbox_inches="tight")
 print(f"\n✅ Imagen guardada correctamente en:\n{output_path}")
 
-udf.save_df_to_excel(rp.summaryFile,kARIMAsDf_All, f"6.kM_T{rp.minTrainYr}-{rp.maxTrainYr}_F{rp.minOOByr}-{rp.maxOOByr}")
+if rp.autoARIMAFlag == True: 
+    udf.save_df_to_excel(rp.summaryFile,kARIMAsDf_All, f"6.kM_T{rp.minTrainYr}-{rp.maxTrainYr}_F{rp.minOOByr}-{rp.maxOOByr}")
+
 udf.save_df_to_excel(rp.summaryFile,kARIMAParamDfByGender_All, f"7.kP_T{rp.minTrainYr}-{rp.maxTrainYr}_F{rp.minOOByr}-{rp.maxOOByr}")
 udf.save_df_to_excel(rp.summaryFile,df_k_combined_all, f"8.kt_T{rp.minTrainYr}-{rp.maxTrainYr}_F{rp.minOOByr}-{rp.maxOOByr}")

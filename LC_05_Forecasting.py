@@ -144,7 +144,39 @@ for model_key, col_val, col_log in models:
             "RMSLE": udf.rmsle_from_logs(y_true_log, y_pred_log),
         })
 
-forecasting_metrics_by_gender_df = pd.DataFrame(metrics_by_gender).sort_values(["Model", "Gender"])
+
+metrics_by_gender_yr = []
+for model_key, col_val, col_log in models:
+    for gender in sorted(mx_forecasted["Gender"].unique()):
+        for yr in sorted(mx_forecasted["Year"].unique()):
+            sub = mx_forecasted[(mx_forecasted["Gender"] == gender) & (mx_forecasted["Year"] == yr)]
+            y_true = sub[sub["Model"] == "BE"][col_val]
+            y_pred = sub[sub["Model"] == model_key][col_val]
+            y_true_log = sub[sub["Model"] == "BE"][col_log]
+            y_pred_log = sub[sub["Model"] == model_key][col_log]
+
+            metrics_by_gender_yr.append({
+                "Year": yr,
+                "Model": model_key,
+                "Gender": gender,
+                "MAPE_pct": udf.mape(y_true, y_pred),
+                "RMSE": udf.rmse(y_true, y_pred),
+                "RMSLE": udf.rmsle_from_logs(y_true_log, y_pred_log),
+        })
+
+
+forecasting_metrics_by_gender_df = pd.DataFrame(metrics_by_gender).sort_values(["Gender","Model"])
+forecasting_metrics_by_gender_yr_df = pd.DataFrame(metrics_by_gender_yr).sort_values(["Gender","Model","Year"])
+
+sns.set_style("whitegrid") 
+sns.catplot(x="Year", 
+    y="RMSE", 
+    data=forecasting_metrics_by_gender_yr_df, 
+    hue="Gender", 
+    kind="point") 
+plt.show() 
+
 
 udf.save_df_to_excel(rp.summaryFile,mx_LC_All_Df, f"9.mx_T{rp.minTrainYr}-{rp.maxTrainYr}_F{rp.minOOByr}-{rp.maxOOByr}")
 udf.save_df_to_excel(rp.summaryFile,forecasting_metrics_by_gender_df, f"10.Proj_T{rp.minTrainYr}-{rp.maxTrainYr}_F{rp.minOOByr}-{rp.maxOOByr}")
+udf.save_df_to_excel(rp.summaryFile,forecasting_metrics_by_gender_yr_df, f"11.PrjYr_T{rp.minTrainYr}-{rp.maxTrainYr}_F{rp.minOOByr}-{rp.maxOOByr}")
