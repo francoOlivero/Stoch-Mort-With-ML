@@ -1,0 +1,66 @@
+graph LR
+    %% Configuración de Estilos Globales
+        classDef inputNode fill:#d4edda1a,stroke:#28a745,color:#000
+        classDef standardNode fill:#1a3a5f,stroke:#ffffff,color:#fff
+        classDef terminalNode fill:#d4edda1a,stroke:#28a745,color:#000
+    %% Nodo Inicial
+    Data[(Información Histórica 
+    de Mortalidad)]:::inputNode
+    
+    %% Subcuadro Lee-Carter (Igualado al de ML)
+    subgraph LC_Section [Modelos Lee-Carter]
+        direction TB
+        LC_M[Mujeres]:::standardNode
+        LC_F[Hombres]:::standardNode
+    end
+    
+    LC_M  --> Err_M[Residuos 
+    = 
+    Factores ML
+    ]:::standardNode
+    LC_F --> Err_H[Residuos 
+    = 
+    Factores ML
+    ]:::standardNode
+    
+    %% Subcuadro ML forzado a vertical
+    subgraph ML_Training [Aprendizaje Automático]
+        direction TB
+        ML1[Decission
+        Tree]:::standardNode
+        ML2[Random 
+        Forest]:::standardNode
+        ML3[Gradient 
+        Boosting]:::standardNode
+        
+        %% Esto fuerza el orden vertical sin mostrar flechas
+        ML1 ~~~ ML2
+        ML2 ~~~ ML3
+    end
+
+    %% Conexiones de Datos
+    Data --> LC_Section
+    Err_M --> ML_Training
+    Err_H --> ML_Training
+    
+    %% Bloque de Combinación Centrado
+    ML_Training --> Combo[Aplicación:
+    Lee-Carter + ML]:::standardNode
+    
+    %% Uniones de Referencia desde el primer subcuadro
+    LC_Section -.-> Combo
+    LC_Section -.-> TS
+    
+    %% Bloques Finales
+    Combo --> TS[Modelo 
+    Estocástico:
+    ARIMA]:::standardNode
+    TS --> Projection[/Proyección
+    Futura de 
+    Mortalidad/]:::terminalNode
+
+    %% Estilos de Líneas y Subgrafos
+    linkStyle default stroke:#1a3a5f,stroke-width:2px
+    
+style ML_Training fill:#add8e61a,stroke:#1a3a5f,stroke-dasharray: 5 5,color:#000
+style LC_Section fill:#add8e61a,stroke:#1a3a5f,stroke-dasharray: 5 5,color:#000
